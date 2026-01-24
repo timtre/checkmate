@@ -54,6 +54,7 @@ def chat(property_id: str, request: ChatRequest):
             evaluation=evaluation,
             guest_message=request.message,
             ai_answer=response.answer,
+            escalate_reason=response.escalate_reason,
         )
 
         if escalation_id:

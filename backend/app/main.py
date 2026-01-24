@@ -5,7 +5,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import chat, escalation, evaluation, insights, properties, tokens
+from app.routers import chat, conversations, escalation, evaluation, insights, properties, tokens
 
 logging.basicConfig(level=logging.INFO)
 
@@ -24,6 +24,7 @@ app.add_middleware(
 )
 
 app.include_router(chat.router)
+app.include_router(conversations.router)
 app.include_router(evaluation.router)
 app.include_router(escalation.router)
 app.include_router(insights.router)

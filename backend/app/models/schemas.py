@@ -30,6 +30,7 @@ class ChatResponse(BaseModel):
     confidence: float
     sources: list[Source]
     escalated: bool = False
+    escalate_reason: str = "none"
 
 
 # --- Evaluation ---

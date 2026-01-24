@@ -19,13 +19,24 @@ def _get_openai():
     return _openai_client
 
 
-SYSTEM_PROMPT = """You are a helpful property concierge assistant. You answer guest questions about the property using ONLY the provided context. If the context doesn't contain enough information to answer confidently, say so clearly.
+SYSTEM_PROMPT = """You are a helpful property concierge assistant. You answer guest questions about the property using the provided context. If the context doesn't contain enough information to answer confidently, say so clearly.
 
 Rules:
-- Only answer based on the provided property context
+- Answer based on the provided property context when relevant
 - Be concise and friendly
-- If unsure, express uncertainty rather than guessing
+- If unsure about property-specific details, express uncertainty rather than guessing
 - Include specific details (codes, addresses, times) when available
+- Respond naturally to greetings, small talk, and general conversation without requiring property context
+
+Escalation guidelines — set ESCALATE to true ONLY for these priority cases:
+1. safety — Gas leak, fire, flooding, injury, break-in, medical emergency
+2. access_blocked — Locked out, wrong code, key missing, lockbox broken
+3. maintenance_urgent — No hot water/electricity, plumbing leak, HVAC failure
+4. dissatisfied — Explicit frustration with AI or guest asks for a human/manager
+5. cannot_answer — Property-specific question not in knowledge base that materially affects the stay
+6. repeated_unanswered — Same substantive question asked multiple times without resolution
+
+Do NOT escalate for: greetings, small talk, thanks, questions you can answer, general chat.
 
 After your answer, rate your confidence on a scale of 0.0 to 1.0 based on:
 - How well the context covers the question
@@ -34,7 +45,9 @@ After your answer, rate your confidence on a scale of 0.0 to 1.0 based on:
 
 Format your response as:
 ANSWER: <your answer>
-CONFIDENCE: <0.0 to 1.0>"""
+CONFIDENCE: <0.0 to 1.0>
+ESCALATE: <true or false>
+ESCALATE_REASON: <none|safety|access_blocked|maintenance_urgent|dissatisfied|cannot_answer|repeated_unanswered>"""
 
 
 def generate_response(
@@ -75,7 +88,7 @@ def generate_response(
     raw_response = response.choices[0].message.content or ""
 
     # Parse response
-    answer, confidence = _parse_response(raw_response)
+    answer, confidence, escalate, escalate_reason = _parse_response(raw_response)
 
     # Build sources
     sources = [
@@ -105,7 +118,7 @@ def generate_response(
         property_id=property_id,
         question_pattern=_normalize_question(guest_message),
         confidence=confidence,
-        escalated=False,  # Updated later by evaluation
+        escalated=escalate,
     )
 
     return ChatResponse(
@@ -114,6 +127,8 @@ def generate_response(
         answer=answer,
         confidence=confidence,
         sources=sources,
+        escalated=escalate,
+        escalate_reason=escalate_reason,
     )
 
 
@@ -143,11 +158,38 @@ Guest Question: {current_message}"""
     return messages
 
 
-def _parse_response(raw: str) -> tuple[str, float]:
-    """Parse the LLM response into answer and confidence score."""
+def _parse_response(raw: str) -> tuple[str, float, bool, str]:
+    """Parse the LLM response into answer, confidence, escalate flag, and reason."""
     answer = raw
     confidence = 0.5  # default if parsing fails
+    escalate = False
+    escalate_reason = "none"
 
+    # Extract ESCALATE_REASON first (must come before ESCALATE extraction)
+    if "ESCALATE_REASON:" in raw:
+        parts = raw.rsplit("ESCALATE_REASON:", 1)
+        raw = parts[0].strip()
+        reason_value = parts[1].strip().split()[0].lower() if parts[1].strip() else "none"
+        valid_reasons = {
+            "none",
+            "safety",
+            "access_blocked",
+            "maintenance_urgent",
+            "dissatisfied",
+            "cannot_answer",
+            "repeated_unanswered",
+        }
+        if reason_value in valid_reasons:
+            escalate_reason = reason_value
+
+    # Extract ESCALATE flag
+    if "ESCALATE:" in raw:
+        parts = raw.rsplit("ESCALATE:", 1)
+        raw = parts[0].strip()
+        escalate_value = parts[1].strip().split()[0].lower() if parts[1].strip() else "false"
+        escalate = escalate_value == "true"
+
+    # Extract CONFIDENCE
     if "CONFIDENCE:" in raw:
         parts = raw.rsplit("CONFIDENCE:", 1)
         answer = parts[0].strip()
@@ -156,11 +198,13 @@ def _parse_response(raw: str) -> tuple[str, float]:
             confidence = max(0.0, min(1.0, confidence))
         except (ValueError, IndexError):
             pass
+    else:
+        answer = raw
 
     if answer.startswith("ANSWER:"):
         answer = answer[7:].strip()
 
-    return answer, confidence
+    return answer, confidence, escalate, escalate_reason
 
 
 def _normalize_question(question: str) -> str:

@@ -14,6 +14,7 @@ export interface ChatResponse {
   confidence: number;
   sources: Source[];
   escalated: boolean;
+  escalate_reason: string;
 }
 
 export interface DocumentIngestResponse {
@@ -185,6 +186,7 @@ export interface EscalationItem {
   status: string;
   pm_reply: string | null;
   created_at: string;
+  guest_name: string;
 }
 
 export interface EscalationsListResponse {
@@ -206,12 +208,24 @@ export async function getInsights(propertyId: string): Promise<InsightsResponse>
   return res.json();
 }
 
+export async function deleteInsights(propertyId: string): Promise<{ deleted: boolean }> {
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/insights`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`Delete insights failed: ${res.status}`);
+  return res.json();
+}
+
 export async function getEscalations(
   propertyId: string,
-  status?: string
+  status?: string,
+  guestName?: string
 ): Promise<EscalationsListResponse> {
-  const params = status ? `?status=${status}` : "";
-  const res = await fetch(`${BASE_URL}/properties/${propertyId}/escalations${params}`);
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (guestName) params.set("guest_name", guestName);
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/escalations${qs}`);
   if (!res.ok) throw new Error(`Escalations failed: ${res.status}`);
   return res.json();
 }
@@ -230,5 +244,46 @@ export async function replyToEscalation(
     }),
   });
   if (!res.ok) throw new Error(`Reply failed: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteEscalation(escalationId: string): Promise<{ deleted: boolean }> {
+  const res = await fetch(`${BASE_URL}/escalations/${escalationId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Delete escalation failed: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteConversation(
+  propertyId: string,
+  conversationId: string
+): Promise<{ deleted: boolean }> {
+  const res = await fetch(
+    `${BASE_URL}/properties/${propertyId}/conversations/${conversationId}`,
+    { method: "DELETE" }
+  );
+  if (!res.ok) throw new Error(`Delete conversation failed: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteConversationsByGuest(
+  propertyId: string,
+  guestName: string
+): Promise<{ deleted: boolean }> {
+  const params = new URLSearchParams({ guest_name: guestName });
+  const res = await fetch(
+    `${BASE_URL}/properties/${propertyId}/conversations?${params.toString()}`,
+    { method: "DELETE" }
+  );
+  if (!res.ok) throw new Error(`Delete guest conversations failed: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteAllConversations(
+  propertyId: string
+): Promise<{ deleted: boolean }> {
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/conversations`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`Delete all conversations failed: ${res.status}`);
   return res.json();
 }

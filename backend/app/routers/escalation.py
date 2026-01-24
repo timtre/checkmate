@@ -10,12 +10,22 @@ router = APIRouter(tags=["escalation"])
 
 
 @router.get("/properties/{property_id}/escalations")
-def list_escalations(property_id: str, status: str | None = None):
-    """List all escalations for a property, optionally filtered by status."""
-    escalations = persistence.get_property_escalations(property_id)
+def list_escalations(property_id: str, status: str | None = None, guest_name: str | None = None):
+    """List all escalations for a property, optionally filtered by status and/or guest_name."""
+    escalations = persistence.get_property_escalations(property_id, guest_name=guest_name)
     if status:
         escalations = [e for e in escalations if e.get("status") == status]
     return {"property_id": property_id, "escalations": escalations}
+
+
+@router.delete("/escalations/{escalation_id}")
+def delete_escalation(escalation_id: str):
+    """Delete a single escalation."""
+    escalation = persistence.get_escalation(escalation_id)
+    if not escalation:
+        raise HTTPException(status_code=404, detail="Escalation not found")
+    persistence.delete_escalation(escalation_id)
+    return {"deleted": True}
 
 
 @router.get("/escalations/{escalation_id}")

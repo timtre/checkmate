@@ -8,6 +8,13 @@ from app.services.tower_persistence import persistence
 router = APIRouter(prefix="/properties/{property_id}", tags=["insights"])
 
 
+@router.delete("/insights")
+def delete_insights(property_id: str):
+    """Delete all question pattern insights for a property."""
+    persistence.delete_all_question_patterns(property_id)
+    return {"deleted": True}
+
+
 @router.get("/insights", response_model=InsightsResponse)
 def get_insights(property_id: str, limit: int = 10):
     """Get aggregated insights for a property.

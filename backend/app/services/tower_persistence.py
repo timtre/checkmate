@@ -154,7 +154,9 @@ class Persistence:
         )
         return result.data[0] if result.data else None
 
-    def get_property_escalations(self, property_id: str) -> list[dict]:
+    def get_property_escalations(
+        self, property_id: str, guest_name: str | None = None
+    ) -> list[dict]:
         result = (
             _get_supabase()
             .table("escalations")
@@ -163,7 +165,67 @@ class Persistence:
             .order("created_at", desc=True)
             .execute()
         )
-        return result.data or []
+        escalations = result.data or []
+
+        # Enrich with guest_name from conversations
+        conversation_ids = list(
+            {e["conversation_id"] for e in escalations if e.get("conversation_id")}
+        )
+        guest_map: dict[str, str] = {}
+        if conversation_ids:
+            convs = (
+                _get_supabase()
+                .table("conversations")
+                .select("conversation_id, guest_name")
+                .in_("conversation_id", conversation_ids)
+                .execute()
+            )
+            for c in convs.data or []:
+                guest_map[c["conversation_id"]] = c.get("guest_name") or "Guest"
+
+        for e in escalations:
+            e["guest_name"] = guest_map.get(e.get("conversation_id", ""), "Guest")
+
+        if guest_name:
+            escalations = [e for e in escalations if e["guest_name"] == guest_name]
+
+        return escalations
+
+    def delete_escalation(self, escalation_id: str):
+        _get_supabase().table("escalations").delete().eq("escalation_id", escalation_id).execute()
+
+    def delete_conversation(self, conversation_id: str):
+        """Delete a conversation and all related records (escalations, evaluations, messages)."""
+        sb = _get_supabase()
+        sb.table("escalations").delete().eq("conversation_id", conversation_id).execute()
+        sb.table("evaluations").delete().eq("conversation_id", conversation_id).execute()
+        sb.table("messages").delete().eq("conversation_id", conversation_id).execute()
+        sb.table("conversations").delete().eq("conversation_id", conversation_id).execute()
+
+    def delete_conversations_by_guest(self, property_id: str, guest_name: str):
+        """Delete all conversations (and related data) for a specific guest in a property."""
+        result = (
+            _get_supabase()
+            .table("conversations")
+            .select("conversation_id")
+            .eq("property_id", property_id)
+            .eq("guest_name", guest_name)
+            .execute()
+        )
+        for row in result.data or []:
+            self.delete_conversation(row["conversation_id"])
+
+    def delete_all_conversations(self, property_id: str):
+        """Delete all conversations (and related data) for a property."""
+        result = (
+            _get_supabase()
+            .table("conversations")
+            .select("conversation_id")
+            .eq("property_id", property_id)
+            .execute()
+        )
+        for row in result.data or []:
+            self.delete_conversation(row["conversation_id"])
 
     # --- Question patterns (for insights) ---
 
@@ -203,6 +265,10 @@ class Persistence:
                     "escalation_count": 1 if escalated else 0,
                 }
             ).execute()
+
+    def delete_all_question_patterns(self, property_id: str):
+        """Delete all question patterns for a property."""
+        _get_supabase().table("question_patterns").delete().eq("property_id", property_id).execute()
 
     def get_most_asked(self, property_id: str, limit: int = 10) -> list[dict]:
         result = (

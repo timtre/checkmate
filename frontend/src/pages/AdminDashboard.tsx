@@ -5,6 +5,10 @@ import {
   getEscalations,
   getDocuments,
   createProperty,
+  deleteEscalation,
+  deleteConversationsByGuest,
+  deleteAllConversations,
+  deleteInsights,
   type PropertyItem,
   type InsightsResponse,
   type EscalationItem,
@@ -21,6 +25,7 @@ import InsightsTable from "../components/InsightsTable";
 import DocumentsTable from "../components/DocumentsTable";
 import KnowledgePanel from "../components/KnowledgePanel";
 import SettingsPanel from "../components/SettingsPanel";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function AdminDashboard() {
   const [properties, setProperties] = useState<PropertyItem[]>([]);
@@ -31,7 +36,14 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [escalationFilter, setEscalationFilter] = useState<"open" | "all">("open");
+  const [tenantFilter, setTenantFilter] = useState("");
   const [activeTab, setActiveTab] = useState("escalations");
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  }>({ open: false, title: "", description: "", onConfirm: () => {} });
 
   useEffect(() => {
     getProperties()
@@ -83,6 +95,69 @@ export default function AdminDashboard() {
     setProperties((prev) =>
       prev.map((p) => (p.property_id === propertyId ? { ...p, name } : p))
     );
+  }
+
+  const uniqueGuests = [...new Set(escalations.map((e) => e.guest_name).filter(Boolean))].sort();
+
+  const filteredEscalations = tenantFilter
+    ? escalations.filter((e) => e.guest_name === tenantFilter)
+    : escalations;
+
+  function handleDeleteEscalation(id: string) {
+    setConfirmDialog({
+      open: true,
+      title: "Delete Escalation",
+      description: "Are you sure you want to delete this escalation? This cannot be undone.",
+      onConfirm: async () => {
+        setConfirmDialog((prev) => ({ ...prev, open: false }));
+        await deleteEscalation(id);
+        setEscalations((prev) => prev.filter((e) => e.escalation_id !== id));
+      },
+    });
+  }
+
+  function handleDeleteByGuest() {
+    if (!tenantFilter) return;
+    setConfirmDialog({
+      open: true,
+      title: "Delete Guest Data",
+      description: `Delete all conversations and escalations for "${tenantFilter}"? This cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmDialog((prev) => ({ ...prev, open: false }));
+        await deleteConversationsByGuest(propertyId, tenantFilter);
+        setTenantFilter("");
+        fetchData();
+      },
+    });
+  }
+
+  function handleDeleteAll() {
+    setConfirmDialog({
+      open: true,
+      title: "Delete All Data",
+      description:
+        "Delete ALL conversations and escalations for this property? This cannot be undone.",
+      onConfirm: async () => {
+        setConfirmDialog((prev) => ({ ...prev, open: false }));
+        await deleteAllConversations(propertyId);
+        setTenantFilter("");
+        fetchData();
+      },
+    });
+  }
+
+  function handleDeleteInsights() {
+    setConfirmDialog({
+      open: true,
+      title: "Delete Insights",
+      description:
+        "Delete all question pattern insights for this property? This cannot be undone.",
+      onConfirm: async () => {
+        setConfirmDialog((prev) => ({ ...prev, open: false }));
+        await deleteInsights(propertyId);
+        fetchData();
+      },
+    });
   }
 
   const currentProperty = properties.find((p) => p.property_id === propertyId);
@@ -143,7 +218,7 @@ export default function AdminDashboard() {
               </TabsList>
 
               <TabsContent value="escalations" className="space-y-4 mt-4">
-                <div className="flex gap-2 mb-2">
+                <div className="flex gap-2 mb-2 flex-wrap items-center">
                   <button
                     onClick={() => setEscalationFilter("open")}
                     className={`px-3 py-1 text-sm rounded-md transition-colors ${
@@ -164,22 +239,67 @@ export default function AdminDashboard() {
                   >
                     All
                   </button>
+
+                  {uniqueGuests.length > 0 && (
+                    <select
+                      value={tenantFilter}
+                      onChange={(e) => setTenantFilter(e.target.value)}
+                      className="px-3 py-1 text-sm rounded-md border bg-background"
+                    >
+                      <option value="">All Guests</option>
+                      {uniqueGuests.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  <div className="ml-auto flex gap-2">
+                    {tenantFilter && (
+                      <button
+                        onClick={handleDeleteByGuest}
+                        className="px-3 py-1 text-sm rounded-md bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                      >
+                        Delete Guest Data
+                      </button>
+                    )}
+                    {escalations.length > 0 && (
+                      <button
+                        onClick={handleDeleteAll}
+                        className="px-3 py-1 text-sm rounded-md bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                      >
+                        Delete All
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {escalations.length === 0 ? (
+                {filteredEscalations.length === 0 ? (
                   <EscalationsEmptyState />
                 ) : (
-                  escalations.map((esc) => (
+                  filteredEscalations.map((esc) => (
                     <EscalationCard
                       key={esc.escalation_id}
                       escalation={esc}
                       onReplied={handleReplied}
+                      onDelete={handleDeleteEscalation}
                     />
                   ))
                 )}
               </TabsContent>
 
               <TabsContent value="insights" className="space-y-4 mt-4">
+                {(insights?.most_asked?.length || insights?.worst_answered?.length) ? (
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleDeleteInsights}
+                      className="px-3 py-1 text-sm rounded-md bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                    >
+                      Delete All
+                    </button>
+                  </div>
+                ) : null}
                 <InsightsTable title="Most Asked Questions" items={insights?.most_asked ?? []} />
                 <InsightsTable title="Worst Answered Questions" items={insights?.worst_answered ?? []} />
               </TabsContent>
@@ -200,6 +320,14 @@ export default function AdminDashboard() {
           </>
         )}
       </main>
+
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        onCancel={() => setConfirmDialog((prev) => ({ ...prev, open: false }))}
+        onConfirm={confirmDialog.onConfirm}
+      />
     </div>
   );
 }

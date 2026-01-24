@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Send, Inbox } from "lucide-react";
+import { Send, Inbox, Trash2 } from "lucide-react";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,10 +10,18 @@ import { replyToEscalation, type EscalationItem } from "../api";
 interface EscalationCardProps {
   escalation: EscalationItem;
   onReplied: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 function getReasonColor(reason: string) {
   switch (reason) {
+    case "safety": return "bg-red-100 text-red-800 border-red-200";
+    case "access_blocked": return "bg-orange-100 text-orange-800 border-orange-200";
+    case "maintenance_urgent": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    case "dissatisfied": return "bg-red-100 text-red-800 border-red-200";
+    case "cannot_answer": return "bg-blue-100 text-blue-800 border-blue-200";
+    case "repeated_unanswered": return "bg-purple-100 text-purple-800 border-purple-200";
+    // Legacy values for existing DB records
     case "low_confidence": return "bg-amber-100 text-amber-800 border-amber-200";
     case "dissatisfaction": return "bg-red-100 text-red-800 border-red-200";
     case "repeated_question": return "bg-purple-100 text-purple-800 border-purple-200";
@@ -28,7 +36,7 @@ function getConfidenceColor(confidence: number) {
   return "bg-red-100 text-red-800 border-red-200";
 }
 
-export default function EscalationCard({ escalation, onReplied }: EscalationCardProps) {
+export default function EscalationCard({ escalation, onReplied, onDelete }: EscalationCardProps) {
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
   const [replySuccess, setReplySuccess] = useState(false);
@@ -49,6 +57,7 @@ export default function EscalationCard({ escalation, onReplied }: EscalationCard
     <Card className="mb-3">
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium">{escalation.guest_name}</span>
           <Badge className={getReasonColor(escalation.reason)} variant="outline">
             {escalation.reason.replace(/_/g, " ")}
           </Badge>
@@ -58,6 +67,15 @@ export default function EscalationCard({ escalation, onReplied }: EscalationCard
           <span className="ml-auto text-xs text-muted-foreground">
             {new Date(escalation.created_at).toLocaleString()}
           </span>
+          {onDelete && (
+            <button
+              onClick={() => onDelete(escalation.escalation_id)}
+              className="ml-2 text-muted-foreground hover:text-destructive transition-colors"
+              title="Delete escalation"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">

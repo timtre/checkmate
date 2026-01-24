@@ -18,6 +18,7 @@ def maybe_escalate(
     evaluation: EvaluationResult,
     guest_message: str,
     ai_answer: str,
+    escalate_reason: str = "none",
     pm_email: str | None = None,
 ) -> str | None:
     """Create an escalation if the evaluation warrants it. Returns escalation_id or None."""
@@ -26,7 +27,7 @@ def maybe_escalate(
 
     escalation_id = str(uuid.uuid4())
 
-    # Persist escalation
+    # Persist escalation with the LLM's reason
     persistence.save_escalation(
         escalation_id=escalation_id,
         property_id=property_id,
@@ -35,7 +36,7 @@ def maybe_escalate(
         guest_message=guest_message,
         ai_answer=ai_answer,
         confidence=evaluation.confidence,
-        reason=evaluation.verdict.value,
+        reason=escalate_reason,
     )
 
     # Update the question pattern to reflect escalation
@@ -56,7 +57,7 @@ def maybe_escalate(
         guest_message=guest_message,
         ai_answer=ai_answer,
         confidence=evaluation.confidence,
-        reason=evaluation.verdict.value,
+        reason=escalate_reason,
     )
 
     return escalation_id
