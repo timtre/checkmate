@@ -1,4 +1,4 @@
-"""AI Concierge service: generates answers using Tower LLM + RAG context."""
+"""AI Concierge service: generates answers using Tower LLM abstraction + RAG context."""
 
 import uuid
 
@@ -57,7 +57,7 @@ def generate_response(
     messages = _build_messages(history, guest_message, context_text)
 
     # Call Tower LLM
-    llm = tower.llms(settings.tower_llm_model, max_tokens=1000)
+    llm = tower.llms(settings.tower_chat_model, max_tokens=1000)
     raw_response = llm.complete_chat(messages)
 
     # Parse response
