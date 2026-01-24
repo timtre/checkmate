@@ -1,5 +1,7 @@
 """Chat router: property-scoped AI concierge conversations."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 
 from app.models.schemas import (
@@ -14,6 +16,8 @@ from app.services.evaluation import evaluate_response
 from app.services.knowledge_base import ingest_document
 from app.services.tower_persistence import persistence
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/properties/{property_id}", tags=["chat"])
 
 
@@ -25,35 +29,39 @@ def chat(property_id: str, request: ChatRequest):
     Automatic evaluation runs after each response; escalation is triggered
     if confidence is low or dissatisfaction is detected.
     """
-    # Generate AI response
-    response = generate_response(
-        property_id=property_id,
-        conversation_id=request.conversation_id or "",
-        guest_message=request.message,
-        guest_name=request.guest_name,
-    )
+    try:
+        # Generate AI response
+        response = generate_response(
+            property_id=property_id,
+            conversation_id=request.conversation_id or "",
+            guest_message=request.message,
+            guest_name=request.guest_name,
+        )
 
-    # Run automatic evaluation
-    history = persistence.get_conversation_messages(response.conversation_id)
-    evaluation = evaluate_response(
-        property_id=property_id,
-        chat_response=response,
-        guest_message=request.message,
-        conversation_history=history,
-    )
+        # Run automatic evaluation
+        history = persistence.get_conversation_messages(response.conversation_id)
+        evaluation = evaluate_response(
+            property_id=property_id,
+            chat_response=response,
+            guest_message=request.message,
+            conversation_history=history,
+        )
 
-    # Escalate if needed
-    escalation_id = maybe_escalate(
-        property_id=property_id,
-        evaluation=evaluation,
-        guest_message=request.message,
-        ai_answer=response.answer,
-    )
+        # Escalate if needed
+        escalation_id = maybe_escalate(
+            property_id=property_id,
+            evaluation=evaluation,
+            guest_message=request.message,
+            ai_answer=response.answer,
+        )
 
-    if escalation_id:
-        response.escalated = True
+        if escalation_id:
+            response.escalated = True
 
-    return response
+        return response
+    except Exception as e:
+        logger.exception("Chat endpoint error")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/knowledge-base", response_model=DocumentIngestResponse)

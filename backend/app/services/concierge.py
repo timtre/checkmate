@@ -70,7 +70,7 @@ def generate_response(
     response = _get_openai().chat.completions.create(
         model=settings.tower_chat_model,
         messages=messages,
-        max_tokens=1000,
+        max_completion_tokens=1000,
     )
     raw_response = response.choices[0].message.content or ""
 
