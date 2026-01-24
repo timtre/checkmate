@@ -1,15 +1,18 @@
 import ReactMarkdown from "react-markdown";
-import type { Source } from "../api";
 
 interface Props {
   role: "guest" | "assistant" | "property_manager";
   text: string;
-  confidence?: number;
-  sources?: Source[];
+  timestamp?: string;
   escalated?: boolean;
 }
 
-export default function MessageBubble({ role, text, confidence, sources, escalated }: Props) {
+function formatTime(iso: string): string {
+  const date = new Date(iso);
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+export default function MessageBubble({ role, text, timestamp, escalated }: Props) {
   const isGuest = role === "guest";
   const isPM = role === "property_manager";
 
@@ -21,19 +24,12 @@ export default function MessageBubble({ role, text, confidence, sources, escalat
       <div className={`bubble-content${!isGuest ? " bubble-markdown" : ""}`}>
         {isGuest ? text : <ReactMarkdown>{text}</ReactMarkdown>}
       </div>
-      {role === "assistant" && (
+      {role === "assistant" && escalated && (
         <div className="bubble-meta">
-          {confidence !== undefined && (
-            <span className={`confidence-badge ${confidence >= 0.7 ? "high" : confidence >= 0.4 ? "mid" : "low"}`}>
-              {Math.round(confidence * 100)}% confidence
-            </span>
-          )}
-          {sources && sources.length > 0 && (
-            <span className="source-count">{sources.length} source{sources.length > 1 ? "s" : ""}</span>
-          )}
-          {escalated && <span className="escalation-badge">Escalated</span>}
+          <span className="escalation-badge" data-tooltip="A property manager has been informed and will get back to you shortly.">Escalated</span>
         </div>
       )}
+      {timestamp && <div className="bubble-time">{formatTime(timestamp)}</div>}
     </div>
   );
 }

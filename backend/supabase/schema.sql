@@ -59,6 +59,7 @@ create table if not exists messages (
     content text not null,
     confidence float default 0.0,
     sources_json text default '[]',
+    escalated boolean not null default false,
     created_at timestamptz default now()
 );
 

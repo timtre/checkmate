@@ -359,6 +359,7 @@ export interface MessageItem {
   content: string;
   confidence: number | null;
   sources_json: Source[] | null;
+  escalated: boolean;
   created_at: string;
 }
 

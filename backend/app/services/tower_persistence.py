@@ -66,6 +66,7 @@ class Persistence:
         content: str,
         confidence: float = 0.0,
         sources: list[dict] | None = None,
+        escalated: bool = False,
     ):
         _get_supabase().table("messages").insert(
             {
@@ -76,6 +77,7 @@ class Persistence:
                 "content": content,
                 "confidence": confidence,
                 "sources_json": json.dumps(sources or []),
+                "escalated": escalated,
             }
         ).execute()
 

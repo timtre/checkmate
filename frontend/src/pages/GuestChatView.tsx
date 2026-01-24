@@ -1,14 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { validateToken, sendMessage, getMessages, type ChatResponse, type Source } from "../api";
+import { validateToken, sendMessage, getMessages, type ChatResponse } from "../api";
 import MessageBubble from "../components/MessageBubble";
 import "../guest-chat.css";
 
 interface Message {
   role: "guest" | "assistant" | "property_manager";
   text: string;
-  confidence?: number;
-  sources?: Source[];
+  timestamp?: string;
   escalated?: boolean;
 }
 
@@ -39,8 +38,8 @@ export default function GuestChatView() {
               history.map((m) => ({
                 role: m.role,
                 text: m.content,
-                confidence: m.confidence ?? undefined,
-                sources: m.sources_json ?? undefined,
+                timestamp: m.created_at,
+                escalated: m.escalated,
               }))
             );
           } catch {
@@ -71,8 +70,8 @@ export default function GuestChatView() {
           const mapped: Message[] = newMessages.map((m) => ({
             role: m.role,
             text: m.content,
-            confidence: m.confidence ?? undefined,
-            sources: m.sources_json ?? undefined,
+            timestamp: m.created_at,
+            escalated: m.escalated,
           }));
           return [...prev, ...mapped];
         });
@@ -88,7 +87,7 @@ export default function GuestChatView() {
     const text = input.trim();
     if (!text || !propertyId) return;
 
-    setMessages((prev) => [...prev, { role: "guest", text }]);
+    setMessages((prev) => [...prev, { role: "guest", text, timestamp: new Date().toISOString() }]);
     setInput("");
     setLoading(true);
 
@@ -105,8 +104,7 @@ export default function GuestChatView() {
         {
           role: "assistant",
           text: res.answer,
-          confidence: res.confidence,
-          sources: res.sources,
+          timestamp: new Date().toISOString(),
           escalated: res.escalated,
         },
       ]);
@@ -148,7 +146,13 @@ export default function GuestChatView() {
         {messages.map((msg, i) => (
           <MessageBubble key={i} {...msg} />
         ))}
-        {loading && <div className="loading">Thinking...</div>}
+        {loading && (
+          <div className="typing-indicator">
+            <span className="dot" />
+            <span className="dot" />
+            <span className="dot" />
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
       <form
