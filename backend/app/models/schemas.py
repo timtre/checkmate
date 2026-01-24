@@ -121,3 +121,20 @@ class InsightsResponse(BaseModel):
     most_asked: list[QuestionInsight]
     worst_answered: list[QuestionInsight]
     period_days: int = 30
+
+
+# --- Tokens ---
+
+
+class TokenCreateRequest(BaseModel):
+    guest_name: str
+
+
+class TokenCreateResponse(BaseModel):
+    token: str
+    link: str
+
+
+class TokenValidationResponse(BaseModel):
+    property_id: str
+    guest_name: Optional[str] = None

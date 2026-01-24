@@ -40,6 +40,35 @@ export async function sendMessage(
   return res.json();
 }
 
+export interface TokenValidationResponse {
+  property_id: string;
+  guest_name: string | null;
+}
+
+export interface TokenCreateResponse {
+  token: string;
+  link: string;
+}
+
+export async function validateToken(token: string): Promise<TokenValidationResponse> {
+  const res = await fetch(`${BASE_URL}/tokens/${token}`);
+  if (!res.ok) throw new Error(`Token invalid: ${res.status}`);
+  return res.json();
+}
+
+export async function createToken(
+  propertyId: string,
+  guestName: string
+): Promise<TokenCreateResponse> {
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/tokens`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ guest_name: guestName }),
+  });
+  if (!res.ok) throw new Error(`Token creation failed: ${res.status}`);
+  return res.json();
+}
+
 export async function ingestDocument(
   propertyId: string,
   title: string,

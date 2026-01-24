@@ -10,146 +10,107 @@ body {
   color: #1a1a1a;
 }
 
-.app {
-  max-width: 800px;
+/* ===== Guest Chat View ===== */
+.guest-chat {
+  max-width: 600px;
   margin: 0 auto;
   height: 100vh;
   display: flex;
   flex-direction: column;
-}
-
-.app-header {
-  padding: 16px;
   background: #fff;
-  border-bottom: 1px solid #e0e0e0;
 }
 
-.app-header h1 {
-  font-size: 20px;
-  margin-bottom: 12px;
-}
-
-.header-inputs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.header-input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 14px;
-}
-
-.tabs {
-  display: flex;
-  gap: 4px;
-}
-
-.tabs button {
-  padding: 6px 16px;
-  border: none;
-  background: #f0f0f0;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.tabs button.active {
+.guest-chat-header {
+  padding: 16px 20px;
   background: #1a1a1a;
   color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.app-main {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+.guest-chat-header h1 {
+  font-size: 18px;
+  font-weight: 600;
 }
 
-.notice {
-  padding: 24px;
-  text-align: center;
-  color: #666;
-}
-
-/* Chat Panel */
-.chat-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.chat-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-}
-
-.chat-header h2 {
-  font-size: 16px;
-}
-
-.btn-secondary {
-  padding: 6px 12px;
-  border: 1px solid #ddd;
-  background: #fff;
-  border-radius: 6px;
-  cursor: pointer;
+.guest-welcome {
   font-size: 13px;
+  opacity: 0.8;
+  margin-top: 2px;
 }
 
-.messages {
+.guest-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.loading {
+.guest-welcome-message {
+  text-align: center;
   color: #888;
-  font-style: italic;
-  padding: 8px;
+  margin-top: 40%;
+  font-size: 16px;
 }
 
-.chat-input {
+.guest-chat-loading,
+.guest-chat-error {
   display: flex;
-  gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid #e0e0e0;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-size: 16px;
+  color: #666;
+}
+
+.guest-chat-error {
+  color: #c0392b;
+}
+
+.guest-chat-input {
+  display: flex;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid #eee;
   background: #fff;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.chat-input input {
+.guest-chat-input input {
   flex: 1;
-  padding: 10px 14px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 12px 18px;
+  border: 1px solid #e0e0e0;
+  border-radius: 24px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
 }
 
-.chat-input button {
-  padding: 10px 20px;
+.guest-chat-input input:focus {
+  border-color: #1a1a1a;
+}
+
+.guest-chat-input button {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
   background: #1a1a1a;
   color: #fff;
-  border: none;
-  border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
 }
 
-.chat-input button:disabled {
+.guest-chat-input button:disabled {
   background: #ccc;
   cursor: not-allowed;
 }
 
-/* Message Bubble */
+/* ===== Message Bubble ===== */
 .message-bubble {
   max-width: 80%;
 }
@@ -164,7 +125,7 @@ body {
 
 .bubble-content {
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: 18px;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -176,8 +137,7 @@ body {
 }
 
 .message-bubble.assistant .bubble-content {
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  background: #f0f0f0;
   border-bottom-left-radius: 4px;
 }
 
@@ -221,14 +181,39 @@ body {
   color: #721c24;
 }
 
-/* Knowledge Panel */
-.knowledge-panel {
-  padding: 16px;
+.loading {
+  color: #888;
+  font-style: italic;
+  padding: 8px;
 }
 
-.knowledge-panel h2 {
-  font-size: 16px;
+/* ===== Admin Panel ===== */
+.admin-panel {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.admin-header {
+  margin-bottom: 24px;
+}
+
+.admin-header h1 {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.admin-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
   margin-bottom: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.admin-card h2 {
+  font-size: 16px;
+  margin-bottom: 14px;
 }
 
 .form-group {
@@ -246,13 +231,21 @@ body {
 .form-group input,
 .form-group textarea {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border: 1px solid #ddd;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
   font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
 }
 
+.form-group input:focus,
+.form-group textarea:focus {
+  border-color: #1a1a1a;
+}
+
+.admin-card button,
 .knowledge-panel button {
   padding: 10px 20px;
   background: #1a1a1a;
@@ -261,18 +254,49 @@ body {
   border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
+.admin-card button:disabled,
 .knowledge-panel button:disabled {
   background: #ccc;
   cursor: not-allowed;
 }
 
+.token-result {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.token-result label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+.token-result code {
+  display: block;
+  font-size: 13px;
+  word-break: break-all;
+  color: #1a1a1a;
+  font-family: "SF Mono", Monaco, monospace;
+}
+
+.notice {
+  padding: 8px 0;
+  color: #888;
+  font-size: 14px;
+}
+
 .result {
   margin-top: 12px;
   padding: 10px 14px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 13px;
 }
 
@@ -284,4 +308,14 @@ body {
 .result.error {
   background: #f8d7da;
   color: #721c24;
+}
+
+/* Knowledge Panel inside admin */
+.knowledge-panel {
+  padding: 0;
+}
+
+.knowledge-panel h2 {
+  font-size: 16px;
+  margin-bottom: 14px;
 }

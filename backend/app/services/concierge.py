@@ -1,13 +1,23 @@
-"""AI Concierge service: generates answers using Tower LLM abstraction + RAG context."""
+"""AI Concierge service: generates answers using OpenAI + RAG context."""
 
 import uuid
 
-import tower
+from openai import OpenAI
 
 from app.config import settings
 from app.models.schemas import ChatResponse, Source
 from app.services.knowledge_base import retrieve_context
 from app.services.tower_persistence import persistence
+
+_openai_client = None
+
+
+def _get_openai():
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = OpenAI(api_key=settings.openai_api_key)
+    return _openai_client
+
 
 SYSTEM_PROMPT = """You are a helpful property concierge assistant. You answer guest questions about the property using ONLY the provided context. If the context doesn't contain enough information to answer confidently, say so clearly.
 
@@ -56,9 +66,13 @@ def generate_response(
     history = persistence.get_conversation_messages(conversation_id)
     messages = _build_messages(history, guest_message, context_text)
 
-    # Call Tower LLM
-    llm = tower.llms(settings.tower_chat_model, max_tokens=1000)
-    raw_response = llm.complete_chat(messages)
+    # Call OpenAI
+    response = _get_openai().chat.completions.create(
+        model=settings.tower_chat_model,
+        messages=messages,
+        max_tokens=1000,
+    )
+    raw_response = response.choices[0].message.content or ""
 
     # Parse response
     answer, confidence = _parse_response(raw_response)

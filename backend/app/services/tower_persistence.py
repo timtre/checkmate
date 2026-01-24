@@ -1,89 +1,59 @@
-"""Tower persistence service: read/write to Apache Iceberg tables via Tower SDK."""
+"""Persistence service: read/write to Supabase tables."""
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-import tower
+from app.config import settings
 
-from app.models.tower_schemas import (
-    CONVERSATIONS_SCHEMA,
-    ESCALATIONS_SCHEMA,
-    EVALUATIONS_SCHEMA,
-    MESSAGES_SCHEMA,
-    QUESTION_PATTERNS_SCHEMA,
-)
+_supabase_client = None
 
 
-class TowerPersistence:
-    """Manages all Tower table operations for Checkmate."""
+def _get_supabase():
+    global _supabase_client
+    if _supabase_client is None:
+        from supabase import create_client
 
-    def __init__(self):
-        self._tables = {}
+        _supabase_client = create_client(settings.supabase_url, settings.supabase_key)
+    return _supabase_client
 
-    def _get_table(self, name, schema):
-        if name not in self._tables:
-            self._tables[name] = tower.tables(name).create_if_not_exists(schema)
-        return self._tables[name]
 
-    @property
-    def conversations(self):
-        return self._get_table("checkmate_conversations", CONVERSATIONS_SCHEMA)
-
-    @property
-    def messages(self):
-        return self._get_table("checkmate_messages", MESSAGES_SCHEMA)
-
-    @property
-    def evaluations(self):
-        return self._get_table("checkmate_evaluations", EVALUATIONS_SCHEMA)
-
-    @property
-    def escalations(self):
-        return self._get_table("checkmate_escalations", ESCALATIONS_SCHEMA)
-
-    @property
-    def question_patterns(self):
-        return self._get_table("checkmate_question_patterns", QUESTION_PATTERNS_SCHEMA)
+class Persistence:
+    """Manages all Supabase persistence operations for Checkmate."""
 
     # --- Conversations ---
 
     def create_conversation(self, property_id: str, guest_name: str | None = None) -> str:
         conversation_id = str(uuid.uuid4())
-        now = datetime.utcnow()
-        self.conversations.insert(
-            [
-                {
-                    "conversation_id": conversation_id,
-                    "property_id": property_id,
-                    "guest_name": guest_name or "Guest",
-                    "started_at": now,
-                    "last_message_at": now,
-                    "message_count": 0,
-                    "escalation_count": 0,
-                }
-            ]
-        )
+        now = datetime.now(timezone.utc).isoformat()
+        _get_supabase().table("conversations").insert(
+            {
+                "conversation_id": conversation_id,
+                "property_id": property_id,
+                "guest_name": guest_name or "Guest",
+                "started_at": now,
+                "last_message_at": now,
+                "message_count": 0,
+                "escalation_count": 0,
+            }
+        ).execute()
         return conversation_id
 
     def update_conversation_activity(self, conversation_id: str):
-        self.conversations.upsert(
-            [
-                {
-                    "conversation_id": conversation_id,
-                    "last_message_at": datetime.utcnow(),
-                }
-            ]
-        )
+        _get_supabase().table("conversations").update(
+            {"last_message_at": datetime.now(timezone.utc).isoformat()}
+        ).eq("conversation_id", conversation_id).execute()
 
     def get_conversation_messages(self, conversation_id: str) -> list[dict]:
-        df = (
-            self.messages.to_polars()
-            .filter(__import__("polars").col("conversation_id") == conversation_id)
-            .sort("created_at")
-            .collect()
+        result = (
+            _get_supabase()
+            .table("messages")
+            .select("*")
+            .eq("conversation_id", conversation_id)
+            .order("created_at")
+            .execute()
         )
-        return df.to_dicts()
+        return result.data or []
 
     # --- Messages ---
 
@@ -97,20 +67,17 @@ class TowerPersistence:
         confidence: float = 0.0,
         sources: list[dict] | None = None,
     ):
-        self.messages.insert(
-            [
-                {
-                    "message_id": message_id,
-                    "conversation_id": conversation_id,
-                    "property_id": property_id,
-                    "role": role,
-                    "content": content,
-                    "confidence": confidence,
-                    "sources_json": json.dumps(sources or []),
-                    "created_at": datetime.utcnow(),
-                }
-            ]
-        )
+        _get_supabase().table("messages").insert(
+            {
+                "message_id": message_id,
+                "conversation_id": conversation_id,
+                "property_id": property_id,
+                "role": role,
+                "content": content,
+                "confidence": confidence,
+                "sources_json": json.dumps(sources or []),
+            }
+        ).execute()
 
     # --- Evaluations ---
 
@@ -125,21 +92,18 @@ class TowerPersistence:
         reasons: list[str],
         escalation_id: str | None = None,
     ):
-        self.evaluations.insert(
-            [
-                {
-                    "evaluation_id": evaluation_id,
-                    "conversation_id": conversation_id,
-                    "message_id": message_id,
-                    "property_id": property_id,
-                    "verdict": verdict,
-                    "confidence": confidence,
-                    "reasons_json": json.dumps(reasons),
-                    "escalation_id": escalation_id or "",
-                    "created_at": datetime.utcnow(),
-                }
-            ]
-        )
+        _get_supabase().table("evaluations").insert(
+            {
+                "evaluation_id": evaluation_id,
+                "conversation_id": conversation_id,
+                "message_id": message_id,
+                "property_id": property_id,
+                "verdict": verdict,
+                "confidence": confidence,
+                "reasons_json": json.dumps(reasons),
+                "escalation_id": escalation_id or "",
+            }
+        ).execute()
 
     # --- Escalations ---
 
@@ -154,145 +118,145 @@ class TowerPersistence:
         confidence: float,
         reason: str,
     ):
-        self.escalations.insert(
-            [
-                {
-                    "escalation_id": escalation_id,
-                    "property_id": property_id,
-                    "conversation_id": conversation_id,
-                    "message_id": message_id,
-                    "guest_message": guest_message,
-                    "ai_answer": ai_answer,
-                    "confidence": confidence,
-                    "reason": reason,
-                    "status": "open",
-                    "pm_reply": "",
-                    "replied_by": "",
-                    "created_at": datetime.utcnow(),
-                    "replied_at": None,
-                }
-            ]
-        )
+        _get_supabase().table("escalations").insert(
+            {
+                "escalation_id": escalation_id,
+                "property_id": property_id,
+                "conversation_id": conversation_id,
+                "message_id": message_id,
+                "guest_message": guest_message,
+                "ai_answer": ai_answer,
+                "confidence": confidence,
+                "reason": reason,
+                "status": "open",
+                "pm_reply": "",
+                "replied_by": "",
+            }
+        ).execute()
 
     def update_escalation_reply(self, escalation_id: str, reply_text: str, replied_by: str):
-        self.escalations.upsert(
-            [
-                {
-                    "escalation_id": escalation_id,
-                    "status": "replied",
-                    "pm_reply": reply_text,
-                    "replied_by": replied_by,
-                    "replied_at": datetime.utcnow(),
-                }
-            ]
-        )
+        _get_supabase().table("escalations").update(
+            {
+                "status": "replied",
+                "pm_reply": reply_text,
+                "replied_by": replied_by,
+                "replied_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).eq("escalation_id", escalation_id).execute()
 
     def get_escalation(self, escalation_id: str) -> dict | None:
-        import polars as pl
-
-        df = self.escalations.to_polars().filter(pl.col("escalation_id") == escalation_id).collect()
-        rows = df.to_dicts()
-        return rows[0] if rows else None
+        result = (
+            _get_supabase()
+            .table("escalations")
+            .select("*")
+            .eq("escalation_id", escalation_id)
+            .execute()
+        )
+        return result.data[0] if result.data else None
 
     def get_property_escalations(self, property_id: str) -> list[dict]:
-        import polars as pl
-
-        df = (
-            self.escalations.to_polars()
-            .filter(pl.col("property_id") == property_id)
-            .sort("created_at", descending=True)
-            .collect()
+        result = (
+            _get_supabase()
+            .table("escalations")
+            .select("*")
+            .eq("property_id", property_id)
+            .order("created_at", desc=True)
+            .execute()
         )
-        return df.to_dicts()
+        return result.data or []
 
     # --- Question patterns (for insights) ---
 
     def increment_question_pattern(
         self, property_id: str, question_pattern: str, confidence: float, escalated: bool
     ):
-        import polars as pl
-
-        df = (
-            self.question_patterns.to_polars()
-            .filter(
-                (pl.col("property_id") == property_id)
-                & (pl.col("question_pattern") == question_pattern)
-            )
-            .collect()
+        result = (
+            _get_supabase()
+            .table("question_patterns")
+            .select("*")
+            .eq("property_id", property_id)
+            .eq("question_pattern", question_pattern)
+            .execute()
         )
-        rows = df.to_dicts()
 
-        if rows:
-            existing = rows[0]
+        if result.data:
+            existing = result.data[0]
             new_count = existing["count"] + 1
             new_avg = (existing["avg_confidence"] * existing["count"] + confidence) / new_count
             new_esc = existing["escalation_count"] + (1 if escalated else 0)
-            self.question_patterns.upsert(
-                [
-                    {
-                        "pattern_id": existing["pattern_id"],
-                        "property_id": property_id,
-                        "question_pattern": question_pattern,
-                        "count": new_count,
-                        "avg_confidence": new_avg,
-                        "escalation_count": new_esc,
-                        "last_asked_at": datetime.utcnow(),
-                    }
-                ]
-            )
+            _get_supabase().table("question_patterns").update(
+                {
+                    "count": new_count,
+                    "avg_confidence": new_avg,
+                    "escalation_count": new_esc,
+                    "last_asked_at": datetime.now(timezone.utc).isoformat(),
+                }
+            ).eq("pattern_id", existing["pattern_id"]).execute()
         else:
-            self.question_patterns.insert(
-                [
-                    {
-                        "pattern_id": str(uuid.uuid4()),
-                        "property_id": property_id,
-                        "question_pattern": question_pattern,
-                        "count": 1,
-                        "avg_confidence": confidence,
-                        "escalation_count": 1 if escalated else 0,
-                        "last_asked_at": datetime.utcnow(),
-                    }
-                ]
-            )
+            _get_supabase().table("question_patterns").insert(
+                {
+                    "pattern_id": str(uuid.uuid4()),
+                    "property_id": property_id,
+                    "question_pattern": question_pattern,
+                    "count": 1,
+                    "avg_confidence": confidence,
+                    "escalation_count": 1 if escalated else 0,
+                }
+            ).execute()
 
     def get_most_asked(self, property_id: str, limit: int = 10) -> list[dict]:
-        import polars as pl
-
-        df = (
-            self.question_patterns.to_polars()
-            .filter(pl.col("property_id") == property_id)
-            .sort("count", descending=True)
-            .head(limit)
-            .collect()
+        result = (
+            _get_supabase()
+            .table("question_patterns")
+            .select("*")
+            .eq("property_id", property_id)
+            .order("count", desc=True)
+            .limit(limit)
+            .execute()
         )
-        return df.to_dicts()
+        return result.data or []
 
     def get_worst_answered(self, property_id: str, limit: int = 10) -> list[dict]:
-        import polars as pl
-
-        df = (
-            self.question_patterns.to_polars()
-            .filter((pl.col("property_id") == property_id) & (pl.col("count") >= 2))
-            .sort("avg_confidence")
-            .head(limit)
-            .collect()
+        result = (
+            _get_supabase()
+            .table("question_patterns")
+            .select("*")
+            .eq("property_id", property_id)
+            .gte("count", 2)
+            .order("avg_confidence")
+            .limit(limit)
+            .execute()
         )
-        return df.to_dicts()
+        return result.data or []
 
     def get_property_stats(self, property_id: str) -> dict:
-        import polars as pl
-
         convs = (
-            self.conversations.to_polars().filter(pl.col("property_id") == property_id).collect()
+            _get_supabase()
+            .table("conversations")
+            .select("conversation_id", count="exact")
+            .eq("property_id", property_id)
+            .execute()
         )
-        msgs = self.messages.to_polars().filter(pl.col("property_id") == property_id).collect()
-        escs = self.escalations.to_polars().filter(pl.col("property_id") == property_id).collect()
+        msgs = (
+            _get_supabase()
+            .table("messages")
+            .select("message_id", count="exact")
+            .eq("property_id", property_id)
+            .execute()
+        )
+        escs = (
+            _get_supabase()
+            .table("escalations")
+            .select("escalation_id", count="exact")
+            .eq("property_id", property_id)
+            .execute()
+        )
 
         return {
-            "total_conversations": len(convs),
-            "total_messages": len(msgs),
-            "total_escalations": len(escs),
+            "total_conversations": convs.count or 0,
+            "total_messages": msgs.count or 0,
+            "total_escalations": escs.count or 0,
         }
 
 
-persistence = TowerPersistence()
+persistence = Persistence()
