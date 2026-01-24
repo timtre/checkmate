@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "checkmate"
+version = "0.1.0"
+description = "Property-scoped AI concierge backend"
+authors = []
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115.6"
+uvicorn = { version = "^0.34.0", extras = ["standard"] }
+pydantic = "^2.10.4"
+pydantic-settings = "^2.7.1"
+supabase = "^2.11.0"
+openai = "^1.59.3"
+tower = "^0.3.43"
+pyarrow = "^18.1.0"
+polars = "^1.19.0"
+httpx = "^0.28.1"
+python-dotenv = "^1.0.1"
+
+[tool.poetry.group.dev.dependencies]
+black = "^26.1.0"
+
+[tool.black]
+line-length = 100
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

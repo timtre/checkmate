@@ -1,0 +1,9 @@
+[app]
+name = "checkmate-insights"
+script = "./aggregate_insights.py"
+source = ["./**/*.py", "./requirements.txt"]
+
+[[parameters]]
+name = "property_id"
+description = "Property ID to aggregate insights for. Leave empty for all properties."
+default = ""
