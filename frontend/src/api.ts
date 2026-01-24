@@ -84,6 +84,29 @@ export async function ingestDocument(
   return res.json();
 }
 
+// ===== Knowledge Base Documents =====
+
+export interface KnowledgeBaseDocument {
+  document_id: string;
+  title: string;
+  category: string;
+  content: string;
+  chunk_count: number;
+}
+
+export interface KnowledgeBaseDocumentsResponse {
+  property_id: string;
+  documents: KnowledgeBaseDocument[];
+}
+
+export async function getDocuments(
+  propertyId: string
+): Promise<KnowledgeBaseDocumentsResponse> {
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/knowledge-base`);
+  if (!res.ok) throw new Error(`Documents fetch failed: ${res.status}`);
+  return res.json();
+}
+
 // ===== Properties =====
 
 export interface PropertyItem {

@@ -9,11 +9,12 @@ from app.models.schemas import (
     ChatResponse,
     DocumentIngest,
     DocumentIngestResponse,
+    KnowledgeBaseDocumentsResponse,
 )
 from app.services.concierge import generate_response
 from app.services.escalation import maybe_escalate
 from app.services.evaluation import evaluate_response
-from app.services.knowledge_base import ingest_document
+from app.services.knowledge_base import ingest_document, list_documents
 from app.services.tower_persistence import persistence
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,13 @@ def ingest_knowledge(property_id: str, document: DocumentIngest):
         metadata=document.metadata,
     )
     return DocumentIngestResponse(document_id=document_id, chunks_created=chunks)
+
+
+@router.get("/knowledge-base", response_model=KnowledgeBaseDocumentsResponse)
+def list_knowledge_base(property_id: str):
+    """List all documents in the property's knowledge base."""
+    documents = list_documents(property_id)
+    return KnowledgeBaseDocumentsResponse(property_id=property_id, documents=documents)
 
 
 @router.get("/conversations/{conversation_id}/messages")

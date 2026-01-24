@@ -100,6 +100,42 @@ def retrieve_context(
     ]
 
 
+def list_documents(property_id: str) -> list[dict]:
+    """List all documents in a property's knowledge base, aggregated by document_id."""
+    supabase = _get_supabase()
+    result = (
+        supabase.table("knowledge_base")
+        .select("document_id, title, category, content, chunk_index")
+        .eq("property_id", property_id)
+        .order("document_id")
+        .order("chunk_index")
+        .execute()
+    )
+
+    docs: dict[str, dict] = {}
+    for row in result.data or []:
+        doc_id = row["document_id"]
+        if doc_id not in docs:
+            docs[doc_id] = {
+                "document_id": doc_id,
+                "title": row["title"],
+                "category": row["category"] or "general",
+                "chunks": [],
+            }
+        docs[doc_id]["chunks"].append(row["content"])
+
+    return [
+        {
+            "document_id": d["document_id"],
+            "title": d["title"],
+            "category": d["category"],
+            "content": " ".join(d["chunks"]),
+            "chunk_count": len(d["chunks"]),
+        }
+        for d in docs.values()
+    ]
+
+
 def _chunk_text(text: str, chunk_size: int = 500) -> list[str]:
     """Split text into overlapping chunks by sentences."""
     sentences = text.replace("\n", " ").split(". ")

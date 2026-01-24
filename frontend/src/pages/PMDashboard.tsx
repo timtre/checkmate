@@ -3,19 +3,23 @@ import {
   getProperties,
   getInsights,
   getEscalations,
+  getDocuments,
   type PropertyItem,
   type InsightsResponse,
   type EscalationItem,
+  type KnowledgeBaseDocument,
 } from "../api";
 import StatsOverview from "../components/StatsOverview";
 import EscalationCard from "../components/EscalationCard";
 import InsightsTable from "../components/InsightsTable";
+import DocumentsTable from "../components/DocumentsTable";
 
 export default function PMDashboard() {
   const [properties, setProperties] = useState<PropertyItem[]>([]);
   const [propertyId, setPropertyId] = useState(() => localStorage.getItem("propertyId") || "");
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [escalations, setEscalations] = useState<EscalationItem[]>([]);
+  const [documents, setDocuments] = useState<KnowledgeBaseDocument[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [escalationFilter, setEscalationFilter] = useState<"open" | "all">("open");
@@ -35,12 +39,14 @@ export default function PMDashboard() {
     setLoading(true);
     setError("");
     try {
-      const [insightsRes, escalationsRes] = await Promise.all([
+      const [insightsRes, escalationsRes, documentsRes] = await Promise.all([
         getInsights(propertyId),
         getEscalations(propertyId, escalationFilter === "open" ? "open" : undefined),
+        getDocuments(propertyId),
       ]);
       setInsights(insightsRes);
       setEscalations(escalationsRes.escalations);
+      setDocuments(documentsRes.documents);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -138,6 +144,8 @@ export default function PMDashboard() {
 
             <InsightsTable title="Most Asked Questions" items={insights.most_asked} />
             <InsightsTable title="Worst Answered Questions" items={insights.worst_answered} />
+
+            <DocumentsTable documents={documents} />
           </>
         )}
       </main>

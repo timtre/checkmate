@@ -103,6 +103,19 @@ class DocumentIngestResponse(BaseModel):
     chunks_created: int
 
 
+class KnowledgeBaseDocument(BaseModel):
+    document_id: str
+    title: str
+    category: str
+    content: str
+    chunk_count: int
+
+
+class KnowledgeBaseDocumentsResponse(BaseModel):
+    property_id: str
+    documents: list[KnowledgeBaseDocument]
+
+
 # --- Insights ---
 
 
