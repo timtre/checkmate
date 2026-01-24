@@ -1,6 +1,6 @@
 # Checkmate
 
-**Property-scoped AI concierge backend for vacation rentals.**
+**Property-scoped AI concierge for vacation rentals.**
 
 Checkmate provides intelligent guest support powered by RAG (Retrieval-Augmented Generation). Each property maintains its own knowledge base, conversation history, and analytics — ensuring accurate, context-aware responses for every guest interaction.
 
@@ -21,7 +21,8 @@ Checkmate provides intelligent guest support powered by RAG (Retrieval-Augmented
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | FastAPI 0.115+ (Python 3.11+) |
+| Backend Framework | FastAPI 0.115+ (Python 3.11+) |
+| Frontend | React 19 + Vite + TypeScript |
 | Data Validation | Pydantic v2, Pydantic Settings |
 | Vector Database | Supabase pgvector (1536-dim, IVFFlat index) |
 | Embeddings | OpenAI `text-embedding-3-small` |
@@ -32,7 +33,7 @@ Checkmate provides intelligent guest support powered by RAG (Retrieval-Augmented
 | HTTP Client | httpx |
 | Server | Uvicorn (ASGI) |
 | Formatting | Black (line-length: 100) |
-| Package Manager | Poetry |
+| Package Manager | Poetry (backend), npm (frontend) |
 
 ---
 
@@ -112,6 +113,7 @@ Failed evaluations trigger the escalation workflow.
 
 - Python 3.11+
 - [Poetry](https://python-poetry.org/)
+- Node.js 18+ and npm (for frontend)
 - Supabase project with pgvector extension enabled
 - OpenAI API key (for embeddings)
 - Tower SDK access (for LLM and persistence)
@@ -125,21 +127,29 @@ Failed evaluations trigger the escalation workflow.
 git clone <repository-url>
 cd checkmate
 
-# Install dependencies
+# Backend setup
+cd backend
 poetry install
-
-# Configure environment
 cp .env.example .env
 # Edit .env with your credentials (see Configuration below)
 
 # Set up Supabase schema
-# Run the contents of supabase/schema.sql in your Supabase SQL editor
+# Run the contents of backend/supabase/schema.sql in your Supabase SQL editor
 
-# Start the development server
+# Seed demo data (optional)
+poetry run python seed.py
+
+# Start the backend server
 poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Frontend setup (in a separate terminal)
+cd frontend
+npm install
+npm run dev
 ```
 
 The API will be available at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
+The frontend will be available at `http://localhost:5173`.
 
 ---
 
@@ -281,6 +291,23 @@ All settings are loaded from environment variables (`.env` file) via Pydantic Se
 
 ---
 
+### Properties
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/properties` | List all properties |
+
+---
+
+### Guest Tokens
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/properties/{property_id}/tokens` | Create a guest access token |
+| `GET` | `/tokens/{token}` | Validate a guest token |
+
+---
+
 ### Insights
 
 | Method | Path | Description |
@@ -355,7 +382,7 @@ Five Apache Iceberg tables persisted via Tower SDK:
 
 ## Tower Batch Pipeline
 
-Located in `tower/`. The batch job aggregates question patterns across conversations.
+Located in `backend/tower/`. The batch job aggregates question patterns across conversations.
 
 **What it does:**
 1. Loads messages and evaluations from Tower tables
@@ -367,6 +394,8 @@ Located in `tower/`. The batch job aggregates question patterns across conversat
 
 **Running the job:**
 ```bash
+cd backend
+
 # All properties
 poetry run tower run --parameter=property_id=
 
@@ -385,57 +414,89 @@ tower schedules create --app=checkmate-insights --cron="0 2 * * *"
 
 ```
 checkmate/
-├── app/
-│   ├── main.py                    # FastAPI app, router includes, health endpoint
-│   ├── config.py                  # Pydantic Settings (env vars)
-│   ├── models/
-│   │   ├── schemas.py             # Pydantic request/response models
-│   │   └── tower_schemas.py       # PyArrow schemas for Iceberg tables
-│   ├── routers/
-│   │   ├── chat.py                # /chat and /knowledge-base endpoints
-│   │   ├── evaluation.py          # /evaluations endpoints
-│   │   ├── escalation.py          # /escalations endpoints
-│   │   └── insights.py            # /insights endpoint
-│   ├── services/
-│   │   ├── concierge.py           # RAG + LLM response generation
-│   │   ├── knowledge_base.py      # Supabase pgvector: ingest + retrieve
-│   │   ├── evaluation.py          # Automatic quality checks
-│   │   ├── escalation.py          # Escalation workflow + PM replies
-│   │   └── tower_persistence.py   # Tower table CRUD operations
-│   └── utils/
-│       └── email.py               # Email service (mock)
-├── supabase/
-│   └── schema.sql                 # pgvector table + RPC function
-├── tower/
-│   ├── Towerfile                  # Batch job configuration
-│   └── aggregate_insights.py      # Insights aggregation pipeline
-├── pyproject.toml                 # Poetry dependencies
-└── .env.example                   # Environment variable template
+├── backend/
+│   ├── app/
+│   │   ├── main.py                    # FastAPI app, router includes, health endpoint
+│   │   ├── config.py                  # Pydantic Settings (env vars)
+│   │   ├── models/
+│   │   │   ├── schemas.py             # Pydantic request/response models
+│   │   │   └── tower_schemas.py       # PyArrow schemas for Iceberg tables
+│   │   ├── routers/
+│   │   │   ├── chat.py                # /chat and /knowledge-base endpoints
+│   │   │   ├── evaluation.py          # /evaluations endpoints
+│   │   │   ├── escalation.py          # /escalations endpoints
+│   │   │   ├── insights.py            # /insights endpoint
+│   │   │   ├── properties.py          # /properties endpoint
+│   │   │   └── tokens.py             # /tokens endpoints
+│   │   ├── services/
+│   │   │   ├── concierge.py           # RAG + LLM response generation
+│   │   │   ├── knowledge_base.py      # Supabase pgvector: ingest + retrieve
+│   │   │   ├── evaluation.py          # Automatic quality checks
+│   │   │   ├── escalation.py          # Escalation workflow + PM replies
+│   │   │   ├── tokens.py             # Guest token management
+│   │   │   └── tower_persistence.py   # Tower table CRUD operations
+│   │   └── utils/
+│   │       └── email.py               # Email service (mock)
+│   ├── supabase/
+│   │   └── schema.sql                 # pgvector table + RPC function
+│   ├── tower/
+│   │   ├── Towerfile                  # Batch job configuration
+│   │   └── aggregate_insights.py      # Insights aggregation pipeline
+│   ├── pyproject.toml                 # Poetry dependencies
+│   ├── seed.py                        # Demo data seeding script
+│   └── .env.example                   # Environment variable template
+├── frontend/
+│   ├── src/
+│   │   ├── App.tsx                    # Root component with routing
+│   │   ├── api.ts                     # Backend API client
+│   │   ├── components/                # Reusable UI components
+│   │   └── pages/
+│   │       ├── GuestChatView.tsx      # Guest-facing chat interface
+│   │       ├── PMDashboard.tsx        # Property manager dashboard
+│   │       └── AdminPanel.tsx         # Knowledge base management
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── tsconfig.json
+└── CLAUDE.md                          # AI assistant guidance
 ```
 
 ---
 
 ## Development
 
-### Running the Server
+### Backend
 
 ```bash
+cd backend
+
+# Run the server
 poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
 
-### Code Formatting
-
-```bash
-# Format all code
+# Format code
 poetry run black app/
 
-# Check without modifying
+# Check formatting
 poetry run black --check app/
+```
+
+### Frontend
+
+```bash
+cd frontend
+
+# Dev server (HMR at localhost:5173)
+npm run dev
+
+# Lint
+npm run lint
+
+# Production build
+npm run build
 ```
 
 ### Adding a New Endpoint
 
-1. Define request/response models in `app/models/schemas.py`
-2. Create or extend a router in `app/routers/`
-3. Implement business logic in `app/services/`
-4. Include the router in `app/main.py`
+1. Define request/response models in `backend/app/models/schemas.py`
+2. Create or extend a router in `backend/app/routers/`
+3. Implement business logic in `backend/app/services/`
+4. Include the router in `backend/app/main.py`
