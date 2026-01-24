@@ -1,15 +1,13 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import GuestChatView from "./pages/GuestChatView";
-import AdminPanel from "./pages/AdminPanel";
-import PMDashboard from "./pages/PMDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import "./App.css";
 
 function App() {
   return (
     <Routes>
       <Route path="/chat/:token" element={<GuestChatView />} />
-      <Route path="/admin" element={<AdminPanel />} />
-      <Route path="/dashboard" element={<PMDashboard />} />
+      <Route path="/admin" element={<AdminDashboard />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   );
