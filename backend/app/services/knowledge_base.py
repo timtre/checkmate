@@ -1,14 +1,10 @@
-"""Knowledge base service: Supabase pgvector for RAG retrieval."""
+"""Knowledge base service: stores and retrieves property documents for LLM context."""
 
 import uuid
 
-from openai import OpenAI
-
 from app.config import settings
 
-# Supabase client is initialized lazily
 _supabase_client = None
-_openai_client = None
 
 
 def _get_supabase():
@@ -20,140 +16,97 @@ def _get_supabase():
     return _supabase_client
 
 
-def _get_openai():
-    global _openai_client
-    if _openai_client is None:
-        _openai_client = OpenAI(api_key=settings.openai_api_key)
-    return _openai_client
-
-
-def generate_embedding(text: str) -> list[float]:
-    """Generate embedding vector for a text using OpenAI."""
-    response = _get_openai().embeddings.create(
-        model=settings.embedding_model,
-        input=text,
-    )
-    return response.data[0].embedding
-
-
 def ingest_document(
     property_id: str,
     title: str,
     content: str,
     category: str | None = None,
     metadata: dict | None = None,
-    chunk_size: int = 500,
 ) -> tuple[str, int]:
-    """Split document into chunks, embed each, store in Supabase pgvector."""
+    """Store a property document. Replaces any existing document for the property."""
+    supabase = _get_supabase()
+
+    # Remove existing document for this property
+    supabase.table("knowledge_base").delete().eq("property_id", property_id).execute()
+
+    # Insert the full document as a single row
+    document_id = str(uuid.uuid4())
+    supabase.table("knowledge_base").insert(
+        {
+            "id": str(uuid.uuid4()),
+            "document_id": document_id,
+            "property_id": property_id,
+            "title": title,
+            "chunk_index": 0,
+            "content": content,
+            "category": category or "general",
+            "metadata": metadata or {},
+        }
+    ).execute()
+
+    return document_id, 1
+
+
+def append_document(
+    property_id: str,
+    title: str,
+    content: str,
+    category: str | None = None,
+    metadata: dict | None = None,
+) -> tuple[str, int]:
+    """Append a new document to the property's knowledge base without removing existing ones."""
     supabase = _get_supabase()
     document_id = str(uuid.uuid4())
-    chunks = _chunk_text(content, chunk_size)
-
-    for i, chunk in enumerate(chunks):
-        embedding = generate_embedding(chunk)
-        supabase.table("knowledge_base").insert(
-            {
-                "id": str(uuid.uuid4()),
-                "document_id": document_id,
-                "property_id": property_id,
-                "title": title,
-                "chunk_index": i,
-                "content": chunk,
-                "category": category or "general",
-                "metadata": metadata or {},
-                "embedding": embedding,
-            }
-        ).execute()
-
-    return document_id, len(chunks)
-
-
-def retrieve_context(
-    property_id: str,
-    query: str,
-    top_k: int = 5,
-    similarity_threshold: float = 0.3,
-) -> list[dict]:
-    """Retrieve relevant chunks from the knowledge base using vector similarity."""
-    supabase = _get_supabase()
-    query_embedding = generate_embedding(query)
-
-    # Call the Supabase RPC function for vector similarity search
-    result = supabase.rpc(
-        "match_knowledge_base",
+    supabase.table("knowledge_base").insert(
         {
-            "query_embedding": query_embedding,
-            "match_count": top_k,
-            "filter_property_id": property_id,
-            "similarity_threshold": similarity_threshold,
-        },
+            "id": str(uuid.uuid4()),
+            "document_id": document_id,
+            "property_id": property_id,
+            "title": title,
+            "chunk_index": 0,
+            "content": content,
+            "category": category or "general",
+            "metadata": metadata or {},
+        }
     ).execute()
+    return document_id, 1
+
+
+def retrieve_context(property_id: str, query: str) -> str:
+    """Retrieve all property documents concatenated as LLM context."""
+    supabase = _get_supabase()
+    result = (
+        supabase.table("knowledge_base")
+        .select("title, content")
+        .eq("property_id", property_id)
+        .execute()
+    )
+
+    if not result.data:
+        return ""
+    parts = []
+    for row in result.data:
+        parts.append(f"## {row['title']}\n{row['content']}")
+    return "\n\n".join(parts)
+
+
+def list_documents(property_id: str) -> list[dict]:
+    """List documents in a property's knowledge base."""
+    supabase = _get_supabase()
+    result = (
+        supabase.table("knowledge_base")
+        .select("document_id, title, category, content")
+        .eq("property_id", property_id)
+        .execute()
+    )
 
     return [
         {
             "document_id": row["document_id"],
             "title": row["title"],
-            "snippet": row["content"],
-            "similarity": row["similarity"],
+            "category": row["category"] or "general",
+            "content": row["content"],
+            "chunk_count": 1,
         }
         for row in (result.data or [])
     ]
-
-
-def list_documents(property_id: str) -> list[dict]:
-    """List all documents in a property's knowledge base, aggregated by document_id."""
-    supabase = _get_supabase()
-    result = (
-        supabase.table("knowledge_base")
-        .select("document_id, title, category, content, chunk_index")
-        .eq("property_id", property_id)
-        .order("document_id")
-        .order("chunk_index")
-        .execute()
-    )
-
-    docs: dict[str, dict] = {}
-    for row in result.data or []:
-        doc_id = row["document_id"]
-        if doc_id not in docs:
-            docs[doc_id] = {
-                "document_id": doc_id,
-                "title": row["title"],
-                "category": row["category"] or "general",
-                "chunks": [],
-            }
-        docs[doc_id]["chunks"].append(row["content"])
-
-    return [
-        {
-            "document_id": d["document_id"],
-            "title": d["title"],
-            "category": d["category"],
-            "content": " ".join(d["chunks"]),
-            "chunk_count": len(d["chunks"]),
-        }
-        for d in docs.values()
-    ]
-
-
-def _chunk_text(text: str, chunk_size: int = 500) -> list[str]:
-    """Split text into overlapping chunks by sentences."""
-    sentences = text.replace("\n", " ").split(". ")
-    chunks = []
-    current_chunk = ""
-
-    for sentence in sentences:
-        sentence = sentence.strip()
-        if not sentence:
-            continue
-        candidate = f"{current_chunk}. {sentence}" if current_chunk else sentence
-        if len(candidate) > chunk_size and current_chunk:
-            chunks.append(current_chunk.strip())
-            current_chunk = sentence
-        else:
-            current_chunk = candidate
-
-    if current_chunk.strip():
-        chunks.append(current_chunk.strip())
-
-    return chunks if chunks else [text]

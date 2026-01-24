@@ -1,7 +1,7 @@
 import type { Source } from "../api";
 
 interface Props {
-  role: "guest" | "assistant";
+  role: "guest" | "assistant" | "property_manager";
   text: string;
   confidence?: number;
   sources?: Source[];
@@ -10,11 +10,15 @@ interface Props {
 
 export default function MessageBubble({ role, text, confidence, sources, escalated }: Props) {
   const isGuest = role === "guest";
+  const isPM = role === "property_manager";
+
+  const className = isPM ? "property-manager" : isGuest ? "guest" : "assistant";
 
   return (
-    <div className={`message-bubble ${isGuest ? "guest" : "assistant"}`}>
+    <div className={`message-bubble ${className}`}>
+      {isPM && <div className="pm-label">Property Manager</div>}
       <div className="bubble-content">{text}</div>
-      {!isGuest && (
+      {role === "assistant" && (
         <div className="bubble-meta">
           {confidence !== undefined && (
             <span className={`confidence-badge ${confidence >= 0.7 ? "high" : confidence >= 0.4 ? "mid" : "low"}`}>

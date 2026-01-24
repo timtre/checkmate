@@ -152,3 +152,25 @@ class TokenCreateResponse(BaseModel):
 class TokenValidationResponse(BaseModel):
     property_id: str
     guest_name: Optional[str] = None
+    conversation_id: Optional[str] = None
+
+
+# --- KB Suggestions ---
+
+
+class KBSuggestion(BaseModel):
+    suggestion_id: str
+    property_id: str
+    title: str
+    content: str
+    category: str = "general"
+    source_escalation_ids: list[str] = []
+    status: str = "pending"
+    created_at: Optional[datetime] = None
+    reviewed_at: Optional[datetime] = None
+
+
+class KBSuggestionApproveRequest(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    category: Optional[str] = None

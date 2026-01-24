@@ -5,7 +5,16 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import chat, conversations, escalation, evaluation, insights, properties, tokens
+from app.routers import (
+    chat,
+    conversations,
+    escalation,
+    evaluation,
+    insights,
+    properties,
+    suggestions,
+    tokens,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -30,6 +39,7 @@ app.include_router(escalation.router)
 app.include_router(insights.router)
 app.include_router(properties.router)
 app.include_router(tokens.router)
+app.include_router(suggestions.router)
 
 
 @app.get("/health")

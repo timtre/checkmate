@@ -49,4 +49,26 @@ def validate_token(token: str) -> dict | None:
         if expires < datetime.now(timezone.utc):
             return None
 
-    return {"property_id": row["property_id"], "guest_name": row.get("guest_name")}
+    property_id = row["property_id"]
+    guest_name = row.get("guest_name")
+
+    # Find the most recent conversation for this guest/property pair
+    conversation_id = None
+    if guest_name:
+        conv_result = (
+            supabase.table("conversations")
+            .select("conversation_id")
+            .eq("property_id", property_id)
+            .eq("guest_name", guest_name)
+            .order("last_message_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if conv_result.data:
+            conversation_id = conv_result.data[0]["conversation_id"]
+
+    return {
+        "property_id": property_id,
+        "guest_name": guest_name,
+        "conversation_id": conversation_id,
+    }

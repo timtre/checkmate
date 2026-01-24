@@ -1,0 +1,9 @@
+[app]
+name = "checkmate-kb-suggestions"
+script = "./generate_kb_suggestions.py"
+source = ["./**/*.py", "./requirements.txt"]
+
+[[parameters]]
+name = "property_id"
+description = "Property ID to generate KB suggestions for. Leave empty for all properties."
+default = ""

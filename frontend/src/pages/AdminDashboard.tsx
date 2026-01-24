@@ -3,7 +3,6 @@ import {
   getProperties,
   getInsights,
   getEscalations,
-  getDocuments,
   createProperty,
   deleteEscalation,
   deleteConversationsByGuest,
@@ -12,7 +11,6 @@ import {
   type PropertyItem,
   type InsightsResponse,
   type EscalationItem,
-  type KnowledgeBaseDocument,
 } from "../api";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -22,8 +20,8 @@ import AdminHeader from "../components/AdminHeader";
 import StatsOverview from "../components/StatsOverview";
 import EscalationCard, { EscalationsEmptyState } from "../components/EscalationCard";
 import InsightsTable from "../components/InsightsTable";
-import DocumentsTable from "../components/DocumentsTable";
-import KnowledgePanel from "../components/KnowledgePanel";
+import SuggestionsPanel from "../components/SuggestionsPanel";
+import PropertyDocumentEditor from "../components/PropertyDocumentEditor";
 import SettingsPanel from "../components/SettingsPanel";
 import ConfirmDialog from "../components/ConfirmDialog";
 
@@ -32,7 +30,6 @@ export default function AdminDashboard() {
   const [propertyId, setPropertyId] = useState(() => localStorage.getItem("propertyId") || "");
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [escalations, setEscalations] = useState<EscalationItem[]>([]);
-  const [documents, setDocuments] = useState<KnowledgeBaseDocument[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [escalationFilter, setEscalationFilter] = useState<"open" | "all">("open");
@@ -60,14 +57,12 @@ export default function AdminDashboard() {
     setLoading(true);
     setError("");
     try {
-      const [insightsRes, escalationsRes, documentsRes] = await Promise.all([
+      const [insightsRes, escalationsRes] = await Promise.all([
         getInsights(propertyId),
         getEscalations(propertyId, escalationFilter === "open" ? "open" : undefined),
-        getDocuments(propertyId),
       ]);
       setInsights(insightsRes);
       setEscalations(escalationsRes.escalations);
-      setDocuments(documentsRes.documents);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -305,8 +300,8 @@ export default function AdminDashboard() {
               </TabsContent>
 
               <TabsContent value="knowledge" className="space-y-4 mt-4">
-                <KnowledgePanel propertyId={propertyId} onUploaded={fetchData} />
-                <DocumentsTable documents={documents} />
+                <SuggestionsPanel propertyId={propertyId} onApproved={fetchData} />
+                <PropertyDocumentEditor propertyId={propertyId} />
               </TabsContent>
 
               <TabsContent value="settings" className="mt-4">

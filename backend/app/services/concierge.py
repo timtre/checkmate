@@ -71,9 +71,10 @@ def generate_response(
         content=guest_message,
     )
 
-    # Retrieve relevant context from knowledge base
-    context_results = retrieve_context(property_id, guest_message)
-    context_text = _format_context(context_results)
+    # Retrieve property document for context
+    context_text = retrieve_context(property_id, guest_message)
+    if not context_text:
+        context_text = "No property information available."
 
     # Build conversation history
     history = persistence.get_conversation_messages(conversation_id)
@@ -90,16 +91,7 @@ def generate_response(
     # Parse response
     answer, confidence, escalate, escalate_reason = _parse_response(raw_response)
 
-    # Build sources
-    sources = [
-        Source(
-            document_id=r["document_id"],
-            title=r["title"],
-            snippet=r["snippet"][:200],
-            similarity=r["similarity"],
-        )
-        for r in context_results
-    ]
+    sources: list[Source] = []
 
     # Save assistant message
     assistant_message_id = str(uuid.uuid4())
@@ -130,15 +122,6 @@ def generate_response(
         escalated=escalate,
         escalate_reason=escalate_reason,
     )
-
-
-def _format_context(results: list[dict]) -> str:
-    if not results:
-        return "No relevant information found in the property knowledge base."
-    parts = []
-    for i, r in enumerate(results, 1):
-        parts.append(f"[{i}] {r['title']}:\n{r['snippet']}")
-    return "\n\n".join(parts)
 
 
 def _build_messages(history: list[dict], current_message: str, context: str) -> list[dict]:

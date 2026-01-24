@@ -44,6 +44,7 @@ export async function sendMessage(
 export interface TokenValidationResponse {
   property_id: string;
   guest_name: string | null;
+  conversation_id: string | null;
 }
 
 export interface TokenCreateResponse {
@@ -286,4 +287,89 @@ export async function deleteAllConversations(
   });
   if (!res.ok) throw new Error(`Delete all conversations failed: ${res.status}`);
   return res.json();
+}
+
+// ===== KB Suggestions =====
+
+export interface KBSuggestion {
+  suggestion_id: string;
+  property_id: string;
+  title: string;
+  content: string;
+  category: string;
+  source_escalation_ids: string[];
+  status: string;
+  created_at: string;
+  reviewed_at: string | null;
+}
+
+export interface SuggestionsListResponse {
+  property_id: string;
+  suggestions: KBSuggestion[];
+}
+
+export async function getSuggestions(
+  propertyId: string,
+  status: string = "pending"
+): Promise<SuggestionsListResponse> {
+  const params = new URLSearchParams({ status });
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/suggestions?${params.toString()}`);
+  if (!res.ok) throw new Error(`Suggestions fetch failed: ${res.status}`);
+  return res.json();
+}
+
+export async function approveSuggestion(
+  suggestionId: string,
+  edits?: { title?: string; content?: string; category?: string }
+): Promise<{ suggestion_id: string; status: string; document_id: string }> {
+  const res = await fetch(`${BASE_URL}/suggestions/${suggestionId}/approve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(edits || {}),
+  });
+  if (!res.ok) throw new Error(`Approve failed: ${res.status}`);
+  return res.json();
+}
+
+export async function dismissSuggestion(
+  suggestionId: string
+): Promise<{ suggestion_id: string; status: string }> {
+  const res = await fetch(`${BASE_URL}/suggestions/${suggestionId}/dismiss`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`Dismiss failed: ${res.status}`);
+  return res.json();
+}
+
+// ===== Property Document Helper =====
+
+export async function getPropertyDocument(
+  propertyId: string
+): Promise<{ title: string; content: string } | null> {
+  const res = await getDocuments(propertyId);
+  if (res.documents.length === 0) return null;
+  return { title: res.documents[0].title, content: res.documents[0].content };
+}
+
+// ===== Messages =====
+
+export interface MessageItem {
+  message_id: string;
+  role: "guest" | "assistant" | "property_manager";
+  content: string;
+  confidence: number | null;
+  sources_json: Source[] | null;
+  created_at: string;
+}
+
+export async function getMessages(
+  propertyId: string,
+  conversationId: string
+): Promise<MessageItem[]> {
+  const res = await fetch(
+    `${BASE_URL}/properties/${propertyId}/conversations/${conversationId}/messages`
+  );
+  if (!res.ok) throw new Error(`Messages fetch failed: ${res.status}`);
+  const data = await res.json();
+  return data.messages;
 }

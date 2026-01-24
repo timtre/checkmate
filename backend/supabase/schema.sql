@@ -93,11 +93,28 @@ create table if not exists escalations (
     status text default 'open',
     pm_reply text default '',
     replied_by text default '',
+    kb_suggestion_id text default '',
     created_at timestamptz default now(),
     replied_at timestamptz
 );
 
 create index if not exists escalations_property_idx on escalations (property_id);
+
+-- KB Suggestions (drafted from PM replies to escalations)
+create table if not exists kb_suggestions (
+    suggestion_id text primary key,
+    property_id text not null,
+    title text not null,
+    content text not null,
+    category text default 'general',
+    source_escalation_ids text[] default '{}',
+    status text default 'pending',
+    created_at timestamptz default now(),
+    reviewed_at timestamptz
+);
+
+create index if not exists kb_suggestions_property_idx on kb_suggestions (property_id);
+create index if not exists kb_suggestions_status_idx on kb_suggestions (property_id, status);
 
 -- Question patterns
 create table if not exists question_patterns (

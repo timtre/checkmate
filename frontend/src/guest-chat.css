@@ -111,6 +111,23 @@
   align-self: flex-start;
 }
 
+.message-bubble.property-manager {
+  align-self: flex-start;
+}
+
+.message-bubble.property-manager .bubble-content {
+  background: #e8f4fd;
+  border-bottom-left-radius: 4px;
+}
+
+.pm-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #2980b9;
+  margin-bottom: 2px;
+  padding-left: 4px;
+}
+
 .bubble-content {
   padding: 10px 14px;
   border-radius: 18px;

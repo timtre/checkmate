@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { validateToken, sendMessage, type ChatResponse, type Source } from "../api";
+import { validateToken, sendMessage, getMessages, type ChatResponse, type Source } from "../api";
 import MessageBubble from "../components/MessageBubble";
 import "../guest-chat.css";
 
 interface Message {
-  role: "guest" | "assistant";
+  role: "guest" | "assistant" | "property_manager";
   text: string;
   confidence?: number;
   sources?: Source[];
@@ -28,9 +28,25 @@ export default function GuestChatView() {
     if (!token) return;
     setValidating(true);
     validateToken(token)
-      .then((res) => {
+      .then(async (res) => {
         setPropertyId(res.property_id);
         setGuestName(res.guest_name);
+        if (res.conversation_id) {
+          setConversationId(res.conversation_id);
+          try {
+            const history = await getMessages(res.property_id, res.conversation_id);
+            setMessages(
+              history.map((m) => ({
+                role: m.role,
+                text: m.content,
+                confidence: m.confidence ?? undefined,
+                sources: m.sources_json ?? undefined,
+              }))
+            );
+          } catch {
+            // Conversation may have been deleted; start fresh
+          }
+        }
       })
       .catch(() => {
         setError("This link is invalid or has expired.");
@@ -41,6 +57,32 @@ export default function GuestChatView() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (!conversationId || !propertyId) return;
+
+    const interval = setInterval(async () => {
+      if (loading) return;
+      try {
+        const serverMessages = await getMessages(propertyId, conversationId);
+        setMessages((prev) => {
+          if (serverMessages.length <= prev.length) return prev;
+          const newMessages = serverMessages.slice(prev.length);
+          const mapped: Message[] = newMessages.map((m) => ({
+            role: m.role,
+            text: m.content,
+            confidence: m.confidence ?? undefined,
+            sources: m.sources_json ?? undefined,
+          }));
+          return [...prev, ...mapped];
+        });
+      } catch {
+        // Silently ignore poll errors
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [conversationId, propertyId, loading]);
 
   async function handleSend() {
     const text = input.trim();

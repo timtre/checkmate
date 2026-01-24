@@ -362,5 +362,46 @@ class Persistence:
             "total_escalations": escs.count or 0,
         }
 
+    # --- KB Suggestions ---
+
+    def get_kb_suggestions(self, property_id: str, status: str | None = None) -> list[dict]:
+        query = _get_supabase().table("kb_suggestions").select("*").eq("property_id", property_id)
+        if status:
+            query = query.eq("status", status)
+        result = query.order("created_at", desc=True).execute()
+        return result.data or []
+
+    def get_kb_suggestion(self, suggestion_id: str) -> dict | None:
+        result = (
+            _get_supabase()
+            .table("kb_suggestions")
+            .select("*")
+            .eq("suggestion_id", suggestion_id)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+
+    def update_kb_suggestion_status(
+        self,
+        suggestion_id: str,
+        status: str,
+        title: str | None = None,
+        content: str | None = None,
+        category: str | None = None,
+    ):
+        update_data: dict = {
+            "status": status,
+            "reviewed_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if title is not None:
+            update_data["title"] = title
+        if content is not None:
+            update_data["content"] = content
+        if category is not None:
+            update_data["category"] = category
+        _get_supabase().table("kb_suggestions").update(update_data).eq(
+            "suggestion_id", suggestion_id
+        ).execute()
+
 
 persistence = Persistence()
