@@ -229,6 +229,21 @@ class Persistence:
         )
         return result.data or []
 
+    def list_properties(self) -> list[dict]:
+        """Get distinct property IDs with conversation counts."""
+        result = (
+            _get_supabase().table("conversations").select("property_id, conversation_id").execute()
+        )
+        rows = result.data or []
+        counts: dict[str, int] = {}
+        for row in rows:
+            pid = row["property_id"]
+            counts[pid] = counts.get(pid, 0) + 1
+        return [
+            {"property_id": pid, "conversation_count": count}
+            for pid, count in sorted(counts.items())
+        ]
+
     def get_property_stats(self, property_id: str) -> dict:
         convs = (
             _get_supabase()

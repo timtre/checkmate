@@ -83,3 +83,97 @@ export async function ingestDocument(
   if (!res.ok) throw new Error(`Ingest failed: ${res.status}`);
   return res.json();
 }
+
+// ===== Properties =====
+
+export interface PropertyItem {
+  property_id: string;
+  conversation_count: number;
+}
+
+export interface PropertiesListResponse {
+  properties: PropertyItem[];
+}
+
+export async function getProperties(): Promise<PropertiesListResponse> {
+  const res = await fetch(`${BASE_URL}/properties`);
+  if (!res.ok) throw new Error(`Properties failed: ${res.status}`);
+  return res.json();
+}
+
+// ===== PM Dashboard Types =====
+
+export interface QuestionInsight {
+  question_pattern: string;
+  count: number;
+  avg_confidence: number;
+  escalation_count: number;
+}
+
+export interface InsightsResponse {
+  property_id: string;
+  total_conversations: number;
+  total_messages: number;
+  total_escalations: number;
+  most_asked: QuestionInsight[];
+  worst_answered: QuestionInsight[];
+}
+
+export interface EscalationItem {
+  escalation_id: string;
+  conversation_id: string;
+  message_id: string;
+  guest_message: string;
+  ai_answer: string;
+  confidence: number;
+  reason: string;
+  status: string;
+  pm_reply: string | null;
+  created_at: string;
+}
+
+export interface EscalationsListResponse {
+  property_id: string;
+  escalations: EscalationItem[];
+}
+
+export interface EscalationReplyResponse {
+  escalation_id: string;
+  status: string;
+  reply_injected: boolean;
+}
+
+// ===== PM Dashboard Functions =====
+
+export async function getInsights(propertyId: string): Promise<InsightsResponse> {
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/insights`);
+  if (!res.ok) throw new Error(`Insights failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getEscalations(
+  propertyId: string,
+  status?: string
+): Promise<EscalationsListResponse> {
+  const params = status ? `?status=${status}` : "";
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/escalations${params}`);
+  if (!res.ok) throw new Error(`Escalations failed: ${res.status}`);
+  return res.json();
+}
+
+export async function replyToEscalation(
+  escalationId: string,
+  replyText: string,
+  repliedBy?: string
+): Promise<EscalationReplyResponse> {
+  const res = await fetch(`${BASE_URL}/escalations/${escalationId}/reply`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      reply_text: replyText,
+      replied_by: repliedBy || "property_manager",
+    }),
+  });
+  if (!res.ok) throw new Error(`Reply failed: ${res.status}`);
+  return res.json();
+}

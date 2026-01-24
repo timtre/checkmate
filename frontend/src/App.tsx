@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import GuestChatView from "./pages/GuestChatView";
 import AdminPanel from "./pages/AdminPanel";
+import PMDashboard from "./pages/PMDashboard";
 import "./App.css";
 
 function App() {
@@ -8,6 +9,7 @@ function App() {
     <Routes>
       <Route path="/chat/:token" element={<GuestChatView />} />
       <Route path="/admin" element={<AdminPanel />} />
+      <Route path="/dashboard" element={<PMDashboard />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   );
