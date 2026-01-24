@@ -3,16 +3,22 @@ import {
   getProperties,
   getInsights,
   getEscalations,
+  getBatchSuggestions,
+  updateBatchSuggestion,
   createProperty,
   deleteEscalation,
   deleteConversationsByGuest,
   deleteAllConversations,
   deleteInsights,
+  resetPropertyData,
   type PropertyItem,
   type InsightsResponse,
   type EscalationItem,
+  type BatchSuggestion,
 } from "../api";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Sidebar from "../components/Sidebar";
@@ -23,6 +29,7 @@ import InsightsTable from "../components/InsightsTable";
 import SuggestionsPanel from "../components/SuggestionsPanel";
 import PropertyDocumentEditor from "../components/PropertyDocumentEditor";
 import SettingsPanel from "../components/SettingsPanel";
+import AggregationPanel from "../components/AggregationPanel";
 import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function AdminDashboard() {
@@ -30,6 +37,7 @@ export default function AdminDashboard() {
   const [propertyId, setPropertyId] = useState(() => localStorage.getItem("propertyId") || "");
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
   const [escalations, setEscalations] = useState<EscalationItem[]>([]);
+  const [suggestions, setSuggestions] = useState<BatchSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [escalationFilter, setEscalationFilter] = useState<"open" | "all">("open");
@@ -57,12 +65,14 @@ export default function AdminDashboard() {
     setLoading(true);
     setError("");
     try {
-      const [insightsRes, escalationsRes] = await Promise.all([
+      const [insightsRes, escalationsRes, suggestionsRes] = await Promise.all([
         getInsights(propertyId),
         getEscalations(propertyId, escalationFilter === "open" ? "open" : undefined),
+        getBatchSuggestions(propertyId),
       ]);
       setInsights(insightsRes);
       setEscalations(escalationsRes.escalations);
+      setSuggestions(suggestionsRes);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -285,6 +295,7 @@ export default function AdminDashboard() {
               </TabsContent>
 
               <TabsContent value="insights" className="space-y-4 mt-4">
+                <AggregationPanel propertyId={propertyId} onComplete={fetchData} />
                 {(insights?.most_asked?.length || insights?.worst_answered?.length) ? (
                   <div className="flex justify-end">
                     <button
@@ -297,6 +308,89 @@ export default function AdminDashboard() {
                 ) : null}
                 <InsightsTable title="Most Asked Questions" items={insights?.most_asked ?? []} />
                 <InsightsTable title="Worst Answered Questions" items={insights?.worst_answered ?? []} />
+                {(insights?.escalation_themes?.length ?? 0) > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Escalation Themes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Reason</TableHead>
+                            <TableHead className="w-[90px]">Count</TableHead>
+                            <TableHead className="w-[130px]">Answer Confidence</TableHead>
+                            <TableHead>Sample Questions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {insights!.escalation_themes.map((theme, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="font-medium">{theme.reason}</TableCell>
+                              <TableCell>{theme.escalation_count}</TableCell>
+                              <TableCell>{Math.round(theme.avg_confidence * 100)}%</TableCell>
+                              <TableCell className="text-sm text-muted-foreground">
+                                {theme.sample_questions.join("; ")}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                )}
+                {suggestions.filter(s => s.status === "pending").length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">AI Suggestions</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {suggestions.filter(s => s.status === "pending").map((s) => (
+                        <div key={s.suggestion_id} className="border rounded-lg p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className={
+                              s.suggestion_type === "kb_addition"
+                                ? "bg-blue-100 text-blue-800 border-blue-200"
+                                : "bg-purple-100 text-purple-800 border-purple-200"
+                            }>
+                              {s.suggestion_type === "kb_addition" ? "Knowledge Base" : "Prompt Update"}
+                            </Badge>
+                            <span className="font-medium text-sm">{s.title}</span>
+                          </div>
+                          <p className="text-sm">{s.content}</p>
+                          {s.reasoning && (
+                            <p className="text-xs text-muted-foreground italic">{s.reasoning}</p>
+                          )}
+                          {s.source_patterns.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Based on: {s.source_patterns.join(", ")}
+                            </p>
+                          )}
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              onClick={async () => {
+                                await updateBatchSuggestion(propertyId, s.suggestion_id, "approved");
+                                setSuggestions(prev => prev.map(x => x.suggestion_id === s.suggestion_id ? { ...x, status: "approved" } : x));
+                              }}
+                              className="px-3 py-1 text-xs rounded-md bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={async () => {
+                                await updateBatchSuggestion(propertyId, s.suggestion_id, "dismissed");
+                                setSuggestions(prev => prev.map(x => x.suggestion_id === s.suggestion_id ? { ...x, status: "dismissed" } : x));
+                              }}
+                              className="px-3 py-1 text-xs rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
               </TabsContent>
 
               <TabsContent value="knowledge" className="space-y-4 mt-4">
@@ -309,6 +403,19 @@ export default function AdminDashboard() {
                   propertyId={propertyId}
                   propertyName={propertyName}
                   onNameUpdated={handleNameUpdated}
+                  onReset={() => {
+                    setConfirmDialog({
+                      open: true,
+                      title: "Reset Property Data",
+                      description:
+                        "This will permanently delete ALL conversations, escalations, insights, suggestions, and guest tokens for this property. The property and its knowledge base will be preserved. This cannot be undone.",
+                      onConfirm: async () => {
+                        setConfirmDialog((prev) => ({ ...prev, open: false }));
+                        await resetPropertyData(propertyId);
+                        fetchData();
+                      },
+                    });
+                  }}
                 />
               </TabsContent>
             </Tabs>

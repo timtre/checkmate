@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Save, Link, Copy, CheckCheck } from "lucide-react";
+import { Save, Link, Copy, CheckCheck, TriangleAlert } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,10 @@ interface SettingsPanelProps {
   propertyId: string;
   propertyName: string;
   onNameUpdated: (name: string) => void;
+  onReset?: () => void;
 }
 
-export default function SettingsPanel({ propertyId, propertyName, onNameUpdated }: SettingsPanelProps) {
+export default function SettingsPanel({ propertyId, propertyName, onNameUpdated, onReset }: SettingsPanelProps) {
   const [name, setName] = useState(propertyName);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -130,6 +131,24 @@ export default function SettingsPanel({ propertyId, propertyName, onNameUpdated 
               <AlertDescription>{tokenError}</AlertDescription>
             </Alert>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-red-200">
+        <CardHeader>
+          <CardTitle className="text-base text-red-700 flex items-center gap-2">
+            <TriangleAlert className="h-4 w-4" />
+            Danger Zone
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-3">
+            Reset all conversations, escalations, insights, suggestions, and guest tokens for this property.
+            The property itself and its knowledge base will be preserved.
+          </p>
+          <Button variant="destructive" onClick={onReset}>
+            Reset Property Data
+          </Button>
         </CardContent>
       </Card>
     </div>

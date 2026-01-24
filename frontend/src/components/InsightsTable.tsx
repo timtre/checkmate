@@ -44,7 +44,7 @@ export default function InsightsTable({ title, items }: InsightsTableProps) {
             <TableRow>
               <TableHead>Question</TableHead>
               <TableHead className="w-[70px]">Count</TableHead>
-              <TableHead className="w-[100px]">Confidence</TableHead>
+              <TableHead className="w-[130px]">Answer Confidence</TableHead>
               <TableHead className="w-[90px]">Escalations</TableHead>
             </TableRow>
           </TableHeader>

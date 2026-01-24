@@ -1,125 +1,387 @@
 """Tower batch pipeline: aggregate conversation data into insight metrics.
 
-Run via: tower run --parameter=property_id=<id>
+Reads from Supabase, aggregates question patterns and escalation themes,
+then writes results back to Supabase tables.
+
+Progress is reported to the `aggregation_runs` table for real-time tracking.
+
 Schedule via: tower schedules create --app=checkmate-insights --cron="0 2 * * *"
 """
 
+import json
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 import polars as pl
-import pyarrow as pa
 import tower
+from openai import OpenAI
+from supabase import create_client
 
-# --- Table schemas (mirrored from app) ---
 
-MESSAGES_SCHEMA = pa.schema(
-    [
-        ("message_id", pa.string()),
-        ("conversation_id", pa.string()),
-        ("property_id", pa.string()),
-        ("role", pa.string()),
-        ("content", pa.string()),
-        ("confidence", pa.float64()),
-        ("sources_json", pa.string()),
-        ("created_at", pa.timestamp("us")),
-    ]
-)
-
-EVALUATIONS_SCHEMA = pa.schema(
-    [
-        ("evaluation_id", pa.string()),
-        ("conversation_id", pa.string()),
-        ("message_id", pa.string()),
-        ("property_id", pa.string()),
-        ("verdict", pa.string()),
-        ("confidence", pa.float64()),
-        ("reasons_json", pa.string()),
-        ("escalation_id", pa.string()),
-        ("created_at", pa.timestamp("us")),
-    ]
-)
-
-QUESTION_PATTERNS_SCHEMA = pa.schema(
-    [
-        ("pattern_id", pa.string()),
-        ("property_id", pa.string()),
-        ("question_pattern", pa.string()),
-        ("count", pa.int32()),
-        ("avg_confidence", pa.float64()),
-        ("escalation_count", pa.int32()),
-        ("last_asked_at", pa.timestamp("us")),
-    ]
-)
+def update_progress(supabase, run_id: str, phase: int, phase_name: str, percent: int, detail: str):
+    """Write progress to the aggregation_runs table."""
+    if not run_id:
+        return
+    phase_offsets = {1: 0, 2: 33, 3: 67}
+    phase_weight = 33
+    overall = phase_offsets.get(phase, 0) + int(percent * phase_weight / 100)
+    supabase.table("aggregation_runs").update(
+        {
+            "phase": phase,
+            "phase_name": phase_name,
+            "status": "progress",
+            "percent": percent,
+            "detail": detail,
+            "overall_percent": min(overall, 100),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    ).eq("run_id", run_id).execute()
 
 
 def main():
-    property_id = os.getenv("property_id", "")
+    property_id = tower.parameter("property_id") or ""
+    run_id = tower.parameter("run_id") or ""
 
-    messages_table = tower.tables("checkmate_messages").create_if_not_exists(MESSAGES_SCHEMA)
-    evals_table = tower.tables("checkmate_evaluations").create_if_not_exists(EVALUATIONS_SCHEMA)
-    patterns_table = tower.tables("checkmate_question_patterns").create_if_not_exists(
-        QUESTION_PATTERNS_SCHEMA
-    )
+    supabase = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
 
-    # Load messages
-    messages_df = messages_table.to_polars()
+    try:
+        _run_phases(supabase, property_id, run_id)
+        if run_id:
+            supabase.table("aggregation_runs").update(
+                {
+                    "phase": 3,
+                    "phase_name": "AI Suggestions",
+                    "status": "completed",
+                    "percent": 100,
+                    "detail": "All phases completed",
+                    "overall_percent": 100,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            ).eq("run_id", run_id).execute()
+    except Exception as e:
+        if run_id:
+            supabase.table("aggregation_runs").update(
+                {
+                    "status": "error",
+                    "detail": str(e)[:500],
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            ).eq("run_id", run_id).execute()
+        raise
+
+
+def _run_phases(supabase, property_id: str, run_id: str):
+    # --- Phase 1: Question pattern aggregation ---
+    update_progress(supabase, run_id, 1, "Question Patterns", 0, "Fetching guest messages")
+
+    messages_query = supabase.table("messages").select("*").eq("role", "guest")
     if property_id:
-        messages_df = messages_df.filter(pl.col("property_id") == property_id)
-    messages_df = messages_df.filter(pl.col("role") == "guest").collect()
+        messages_query = messages_query.eq("property_id", property_id)
+    messages_data = messages_query.execute().data or []
 
-    if messages_df.is_empty():
-        print(f"No guest messages found for property_id={property_id or 'all'}")
+    if not messages_data:
+        update_progress(supabase, run_id, 1, "Question Patterns", 100, "No messages found")
+        print("No guest messages found")
         return
 
-    # Normalize questions and aggregate
+    messages_df = pl.DataFrame(messages_data)
+
+    update_progress(supabase, run_id, 1, "Question Patterns", 20, "Fetching evaluations")
+
+    evals_query = supabase.table("evaluations").select("*")
+    if property_id:
+        evals_query = evals_query.eq("property_id", property_id)
+    evals_data = evals_query.execute().data or []
+    evals_df = (
+        pl.DataFrame(evals_data)
+        if evals_data
+        else pl.DataFrame(
+            schema={"message_id": pl.Utf8, "confidence": pl.Float64, "verdict": pl.Utf8}
+        )
+    )
+
+    update_progress(supabase, run_id, 1, "Question Patterns", 40, "Aggregating patterns")
+
     questions = messages_df.with_columns(
         pl.col("content").str.to_lowercase().str.strip_chars().alias("normalized")
     )
 
-    # Load evaluations for confidence data
-    evals_df = evals_table.to_polars()
-    if property_id:
-        evals_df = evals_df.filter(pl.col("property_id") == property_id)
-    evals_df = evals_df.collect()
-
-    # Join messages with evaluations
     joined = questions.join(
         evals_df.select(["message_id", "confidence", "verdict"]),
         left_on="message_id",
         right_on="message_id",
         how="left",
+        suffix="_eval",
     )
 
-    # Group by normalized question and property
     aggregated = (
         joined.group_by(["property_id", "normalized"])
         .agg(
-            pl.count().alias("count"),
-            pl.col("confidence").mean().alias("avg_confidence"),
+            pl.len().alias("count"),
+            pl.col("confidence_eval").mean().alias("avg_confidence"),
             (pl.col("verdict") != "ok").sum().alias("escalation_count"),
         )
         .sort("count", descending=True)
     )
 
-    # Upsert into question_patterns table
-    for row in aggregated.iter_rows(named=True):
-        patterns_table.upsert(
-            [
-                {
-                    "pattern_id": str(uuid.uuid4()),
-                    "property_id": row["property_id"],
-                    "question_pattern": row["normalized"][:200],
-                    "count": row["count"],
-                    "avg_confidence": row["avg_confidence"] or 0.5,
-                    "escalation_count": row["escalation_count"],
-                    "last_asked_at": datetime.utcnow(),
-                }
-            ]
+    now = datetime.now(timezone.utc).isoformat()
+    total = len(aggregated)
+    for i, row in enumerate(aggregated.iter_rows(named=True)):
+        pattern_text = (row["normalized"] or "")[:200]
+        if not pattern_text:
+            continue
+
+        existing = (
+            supabase.table("question_patterns")
+            .select("pattern_id")
+            .eq("property_id", row["property_id"])
+            .eq("question_pattern", pattern_text)
+            .execute()
         )
 
-    print(f"Aggregated {len(aggregated)} question patterns for property_id={property_id or 'all'}")
+        record = {
+            "property_id": row["property_id"],
+            "question_pattern": pattern_text,
+            "count": row["count"],
+            "avg_confidence": row["avg_confidence"] if row["avg_confidence"] is not None else 0.5,
+            "escalation_count": row["escalation_count"],
+            "last_asked_at": now,
+        }
+
+        if existing.data:
+            supabase.table("question_patterns").update(record).eq(
+                "pattern_id", existing.data[0]["pattern_id"]
+            ).execute()
+        else:
+            record["pattern_id"] = str(uuid.uuid4())
+            supabase.table("question_patterns").insert(record).execute()
+
+        if (i + 1) % max(1, total // 5) == 0 or i == total - 1:
+            pct = int((i + 1) / total * 100)
+            update_progress(
+                supabase,
+                run_id,
+                1,
+                "Question Patterns",
+                min(pct, 99),
+                f"Upserting {i + 1}/{total} patterns",
+            )
+
+    update_progress(supabase, run_id, 1, "Question Patterns", 100, f"Aggregated {total} patterns")
+    print(f"Phase 1: Aggregated {total} question patterns")
+
+    # --- Phase 2: Escalation analysis ---
+    update_progress(supabase, run_id, 2, "Escalation Analysis", 0, "Fetching escalations")
+
+    esc_query = supabase.table("escalations").select("*")
+    if property_id:
+        esc_query = esc_query.eq("property_id", property_id)
+    escalations_data = esc_query.execute().data or []
+
+    if not escalations_data:
+        update_progress(supabase, run_id, 2, "Escalation Analysis", 100, "No escalations found")
+        print("Phase 2: No escalations found, skipping")
+        # Skip to phase 3 with no escalation data
+        _phase3_llm_suggestions(supabase, property_id, run_id, aggregated, None, now)
+        return
+
+    esc_df = pl.DataFrame(escalations_data)
+    esc_df = esc_df.with_columns(
+        pl.col("guest_message").str.to_lowercase().str.strip_chars().alias("normalized_question")
+    )
+
+    update_progress(supabase, run_id, 2, "Escalation Analysis", 30, "Grouping by reason")
+
+    esc_grouped = (
+        esc_df.group_by(["property_id", "reason"])
+        .agg(
+            pl.len().alias("escalation_count"),
+            pl.col("confidence").mean().alias("avg_confidence"),
+            pl.col("normalized_question").alias("all_questions"),
+        )
+        .sort("escalation_count", descending=True)
+    )
+
+    total_esc = len(esc_grouped)
+    for i, row in enumerate(esc_grouped.iter_rows(named=True)):
+        questions_list = row["all_questions"] or []
+        question_counts: dict[str, int] = {}
+        for q in questions_list:
+            if q:
+                question_counts[q] = question_counts.get(q, 0) + 1
+        top_questions = sorted(question_counts, key=question_counts.get, reverse=True)[:3]
+
+        insight_id = f"{row['property_id']}:{row['reason']}"
+        record = {
+            "insight_id": insight_id,
+            "property_id": row["property_id"],
+            "reason": row["reason"],
+            "escalation_count": row["escalation_count"],
+            "avg_confidence": row["avg_confidence"] if row["avg_confidence"] is not None else 0.0,
+            "sample_questions": top_questions,
+            "last_seen_at": now,
+        }
+        supabase.table("escalation_insights").upsert(record).execute()
+
+        if (i + 1) % max(1, total_esc // 3) == 0 or i == total_esc - 1:
+            pct = int((i + 1) / total_esc * 100)
+            update_progress(
+                supabase,
+                run_id,
+                2,
+                "Escalation Analysis",
+                min(pct, 99),
+                f"Processing {i + 1}/{total_esc} themes",
+            )
+
+    update_progress(
+        supabase,
+        run_id,
+        2,
+        "Escalation Analysis",
+        100,
+        f"Aggregated {total_esc} escalation themes",
+    )
+    print(f"Phase 2: Aggregated {total_esc} escalation insight groups")
+
+    # --- Phase 3: LLM-generated suggestions ---
+    _phase3_llm_suggestions(supabase, property_id, run_id, aggregated, esc_grouped, now)
+
+
+def _phase3_llm_suggestions(supabase, property_id, run_id, aggregated, esc_grouped, now):
+    update_progress(supabase, run_id, 3, "AI Suggestions", 0, "Preparing data for LLM")
+
+    openai_client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+
+    property_ids = set(aggregated["property_id"].to_list())
+    if property_id:
+        property_ids = {property_id} & property_ids
+    if not property_ids:
+        update_progress(supabase, run_id, 3, "AI Suggestions", 100, "No properties to analyze")
+        return
+
+    suggestions_count = 0
+    total_props = len(property_ids)
+
+    for idx, pid in enumerate(property_ids):
+        prop_patterns = aggregated.filter(pl.col("property_id") == pid).sort("avg_confidence")
+        worst_patterns = []
+        for row in prop_patterns.head(10).iter_rows(named=True):
+            if (
+                row["avg_confidence"] is not None
+                and row["avg_confidence"] < 0.7
+                and row["count"] >= 2
+            ):
+                worst_patterns.append(
+                    f"- \"{row['normalized']}\" (asked {row['count']}x, "
+                    f"avg confidence: {row['avg_confidence']:.0%})"
+                )
+
+        esc_themes = []
+        if esc_grouped is not None:
+            prop_escalations = esc_grouped.filter(pl.col("property_id") == pid)
+            for row in prop_escalations.iter_rows(named=True):
+                samples = ", ".join(f'"{q}"' for q in (row["all_questions"] or [])[:2])
+                esc_themes.append(
+                    f"- Reason: {row['reason']} ({row['escalation_count']}x). Examples: {samples}"
+                )
+
+        if not worst_patterns and not esc_themes:
+            continue
+
+        # Fetch existing KB content
+        kb_result = (
+            supabase.table("knowledge_base")
+            .select("title, category, content")
+            .eq("property_id", pid)
+            .order("chunk_index")
+            .execute()
+        )
+        kb_entries = kb_result.data or []
+        kb_content = "\n".join(entry.get("content", "") for entry in kb_entries)
+
+        prompt_parts = [
+            "Analyze the following guest question patterns for a vacation rental property concierge AI.\n"
+        ]
+        if worst_patterns:
+            prompt_parts.append(
+                "Poorly answered questions (low confidence):\n" + "\n".join(worst_patterns)
+            )
+        if esc_themes:
+            prompt_parts.append("\nEscalation themes:\n" + "\n".join(esc_themes))
+
+        if kb_content:
+            prompt_parts.append(
+                "\nExisting knowledge base content (DO NOT suggest adding topics already covered here):\n"
+                + kb_content
+            )
+
+        prompt_parts.append("""
+IMPORTANT: Do NOT suggest adding content that is already covered by the existing knowledge base entries listed above. Only suggest genuinely missing information.
+
+Based on this data, generate specific, actionable suggestions. For each suggestion provide:
+- type: either "kb_addition" (add content to the knowledge base) or "prompt_update" (adjust the AI system prompt)
+- title: short title (max 10 words)
+- content: the specific text to add or change
+- reasoning: why this would help (1 sentence)
+- source_patterns: list of the question patterns that motivated this suggestion
+
+Respond with a JSON array of suggestions (max 5). Example:
+[{"type": "kb_addition", "title": "Add parking instructions", "content": "Parking is available in the garage on level 2. Use code 4521 to enter.", "reasoning": "Guests frequently ask about parking with low confidence answers.", "source_patterns": ["where do i park", "parking instructions"]}]
+
+Return ONLY the JSON array, no other text.""")
+
+        pct = int((idx + 0.5) / total_props * 100)
+        update_progress(
+            supabase,
+            run_id,
+            3,
+            "AI Suggestions",
+            min(pct, 95),
+            f"Generating suggestions for property {idx + 1}/{total_props}",
+        )
+
+        try:
+            response = openai_client.chat.completions.create(
+                model="gpt-5.1",
+                messages=[{"role": "user", "content": "\n".join(prompt_parts)}],
+                max_completion_tokens=2000,
+            )
+            raw = response.choices[0].message.content or "[]"
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
+            suggestions = json.loads(raw)
+        except (json.JSONDecodeError, Exception) as e:
+            print(f"  Phase 3: Failed to generate suggestions for {pid}: {e}")
+            continue
+
+        for s in suggestions:
+            suggestion_id = str(uuid.uuid4())
+            supabase.table("batch_suggestions").upsert(
+                {
+                    "suggestion_id": suggestion_id,
+                    "property_id": pid,
+                    "suggestion_type": s.get("type", "kb_addition"),
+                    "title": s.get("title", "")[:200],
+                    "content": s.get("content", ""),
+                    "reasoning": s.get("reasoning", ""),
+                    "source_patterns": s.get("source_patterns", []),
+                    "status": "pending",
+                    "created_at": now,
+                }
+            ).execute()
+            suggestions_count += 1
+
+    update_progress(
+        supabase,
+        run_id,
+        3,
+        "AI Suggestions",
+        100,
+        f"Generated {suggestions_count} suggestions",
+    )
+    print(f"Phase 3: Generated {suggestions_count} suggestions across {total_props} properties")
 
 
 if __name__ == "__main__":

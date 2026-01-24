@@ -127,6 +127,13 @@ class QuestionInsight(BaseModel):
     escalation_count: int
 
 
+class EscalationInsight(BaseModel):
+    reason: str
+    escalation_count: int
+    avg_confidence: float
+    sample_questions: list[str] = []
+
+
 class InsightsResponse(BaseModel):
     property_id: str
     total_conversations: int
@@ -134,7 +141,27 @@ class InsightsResponse(BaseModel):
     total_escalations: int
     most_asked: list[QuestionInsight]
     worst_answered: list[QuestionInsight]
+    escalation_themes: list[EscalationInsight] = []
     period_days: int = 30
+
+
+# --- Batch Suggestions ---
+
+
+class BatchSuggestion(BaseModel):
+    suggestion_id: str
+    property_id: str
+    suggestion_type: str
+    title: str
+    content: str
+    reasoning: str = ""
+    source_patterns: list[str] = []
+    status: str = "pending"
+    created_at: Optional[datetime] = None
+
+
+class BatchSuggestionUpdateRequest(BaseModel):
+    status: str
 
 
 # --- Tokens ---
@@ -174,3 +201,27 @@ class KBSuggestionApproveRequest(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
     category: Optional[str] = None
+
+
+# --- Aggregation ---
+
+
+class AggregationTriggerResponse(BaseModel):
+    status: str
+    property_id: str
+    run_id: str = ""
+
+
+class AggregationProgressEvent(BaseModel):
+    phase: int = 0
+    phase_name: str = ""
+    status: str = "idle"
+    percent: int = 0
+    detail: str = ""
+    overall_percent: int = 0
+
+
+class AggregationStatusResponse(BaseModel):
+    status: str
+    property_id: str
+    progress: Optional[AggregationProgressEvent] = None

@@ -1,9 +1,20 @@
 [app]
 name = "checkmate-insights"
 script = "./aggregate_insights.py"
-source = ["./**/*.py", "./requirements.txt"]
+source = [
+    "./**/*.py",
+    "./requirements.txt",
+]
+schedule = ""
+description = ""
+import_paths = []
 
 [[parameters]]
 name = "property_id"
-description = "Property ID to aggregate insights for. Leave empty for all properties."
+description = "Property ID to aggregate insights for (empty = all properties)"
+default = ""
+
+[[parameters]]
+name = "run_id"
+description = "Aggregation run ID for progress tracking in Supabase"
 default = ""

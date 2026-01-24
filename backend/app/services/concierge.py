@@ -86,7 +86,7 @@ def generate_response(
 
     # Build conversation history
     history = persistence.get_conversation_messages(conversation_id)
-    messages = _build_messages(history, guest_message, context_text)
+    messages = _build_messages(property_id, history, guest_message, context_text)
 
     # Call OpenAI
     response = _get_openai().chat.completions.create(
@@ -133,8 +133,34 @@ def generate_response(
     )
 
 
-def _build_messages(history: list[dict], current_message: str, context: str) -> list[dict]:
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+def _build_dynamic_prompt(property_id: str) -> str:
+    """Build system prompt augmented with known knowledge gaps for this property."""
+    prompt = SYSTEM_PROMPT
+
+    worst = persistence.get_worst_answered(property_id, limit=5)
+    gaps = [p for p in worst if p["avg_confidence"] < 0.5 and p["count"] >= 2]
+
+    if gaps:
+        gap_lines = "\n".join(
+            f"- \"{p['question_pattern']}\" (avg confidence: {p['avg_confidence']:.2f}, "
+            f"asked {p['count']} times)"
+            for p in gaps
+        )
+        prompt += (
+            "\n\nKnown knowledge gaps for this property (topics the knowledge base "
+            "does not cover well):\n"
+            f"{gap_lines}\n"
+            "For these topics, do NOT guess or fabricate answers. Instead, acknowledge "
+            "the gap honestly and escalate to the property manager."
+        )
+
+    return prompt
+
+
+def _build_messages(
+    property_id: str, history: list[dict], current_message: str, context: str
+) -> list[dict]:
+    messages = [{"role": "system", "content": _build_dynamic_prompt(property_id)}]
 
     # Add recent history (last 10 messages for context window)
     for msg in history[-10:]:

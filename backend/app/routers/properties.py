@@ -53,3 +53,10 @@ def update_property(property_id: str, body: PropertyUpdate):
     if not result:
         raise HTTPException(status_code=404, detail="Property not found")
     return PropertyResponse(**result)
+
+
+@router.delete("/properties/{property_id}/reset")
+def reset_property_data(property_id: str):
+    """Reset all transactional data for a property, preserving the property and knowledge base."""
+    persistence.reset_property_data(property_id)
+    return {"reset": True}

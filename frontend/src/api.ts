@@ -167,6 +167,13 @@ export interface QuestionInsight {
   escalation_count: number;
 }
 
+export interface EscalationInsight {
+  reason: string;
+  escalation_count: number;
+  avg_confidence: number;
+  sample_questions: string[];
+}
+
 export interface InsightsResponse {
   property_id: string;
   total_conversations: number;
@@ -174,6 +181,19 @@ export interface InsightsResponse {
   total_escalations: number;
   most_asked: QuestionInsight[];
   worst_answered: QuestionInsight[];
+  escalation_themes: EscalationInsight[];
+}
+
+export interface BatchSuggestion {
+  suggestion_id: string;
+  property_id: string;
+  suggestion_type: string;
+  title: string;
+  content: string;
+  reasoning: string;
+  source_patterns: string[];
+  status: string;
+  created_at: string | null;
 }
 
 export interface EscalationItem {
@@ -207,6 +227,21 @@ export async function getInsights(propertyId: string): Promise<InsightsResponse>
   const res = await fetch(`${BASE_URL}/properties/${propertyId}/insights`);
   if (!res.ok) throw new Error(`Insights failed: ${res.status}`);
   return res.json();
+}
+
+export async function getBatchSuggestions(propertyId: string): Promise<BatchSuggestion[]> {
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/batch-suggestions`);
+  if (!res.ok) throw new Error(`Suggestions failed: ${res.status}`);
+  return res.json();
+}
+
+export async function updateBatchSuggestion(propertyId: string, suggestionId: string, status: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/batch-suggestions/${suggestionId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error(`Update suggestion failed: ${res.status}`);
 }
 
 export async function deleteInsights(propertyId: string): Promise<{ deleted: boolean }> {
@@ -289,6 +324,14 @@ export async function deleteAllConversations(
   return res.json();
 }
 
+export async function resetPropertyData(propertyId: string): Promise<{ reset: boolean }> {
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/reset`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`Reset property data failed: ${res.status}`);
+  return res.json();
+}
+
 // ===== Knowledge Base Suggestions =====
 
 export interface KBSuggestion {
@@ -349,6 +392,69 @@ export async function getPropertyDocument(
   const res = await getDocuments(propertyId);
   if (res.documents.length === 0) return null;
   return { title: res.documents[0].title, content: res.documents[0].content };
+}
+
+// ===== Aggregation =====
+
+export interface AggregationProgress {
+  phase: number;
+  phase_name: string;
+  status: string;
+  percent: number;
+  detail: string;
+  overall_percent: number;
+}
+
+export interface AggregationStatusResponse {
+  status: string;
+  property_id: string;
+  progress: AggregationProgress | null;
+}
+
+export async function triggerAggregation(propertyId: string): Promise<{ status: string; property_id: string }> {
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/insights/aggregate`, {
+    method: "POST",
+  });
+  if (res.status === 409) throw new Error("Aggregation already running");
+  if (!res.ok) throw new Error(`Trigger aggregation failed: ${res.status}`);
+  return res.json();
+}
+
+export function streamAggregationProgress(
+  propertyId: string,
+  onProgress: (data: AggregationProgress) => void,
+  onComplete: () => void,
+  onError: (err: string) => void
+): () => void {
+  const url = `${BASE_URL}/properties/${propertyId}/insights/aggregate/stream`;
+  const eventSource = new EventSource(url);
+
+  eventSource.addEventListener("progress", (e) => {
+    try {
+      const data: AggregationProgress = JSON.parse((e as MessageEvent).data);
+      onProgress(data);
+    } catch {
+      // ignore parse errors
+    }
+  });
+
+  eventSource.addEventListener("close", () => {
+    eventSource.close();
+    onComplete();
+  });
+
+  eventSource.onerror = () => {
+    eventSource.close();
+    onError("Connection lost");
+  };
+
+  return () => eventSource.close();
+}
+
+export async function getAggregationStatus(propertyId: string): Promise<AggregationStatusResponse> {
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/insights/aggregate/status`);
+  if (!res.ok) throw new Error(`Status check failed: ${res.status}`);
+  return res.json();
 }
 
 // ===== Messages =====

@@ -297,6 +297,34 @@ class Persistence:
         )
         return result.data or []
 
+    def get_escalation_insights(self, property_id: str, limit: int = 10) -> list[dict]:
+        result = (
+            _get_supabase()
+            .table("escalation_insights")
+            .select("*")
+            .eq("property_id", property_id)
+            .order("escalation_count", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return result.data or []
+
+    # --- Batch Suggestions ---
+
+    def get_batch_suggestions(self, property_id: str, status: str | None = None) -> list[dict]:
+        query = (
+            _get_supabase().table("batch_suggestions").select("*").eq("property_id", property_id)
+        )
+        if status:
+            query = query.eq("status", status)
+        result = query.order("created_at", desc=True).execute()
+        return result.data or []
+
+    def update_batch_suggestion_status(self, suggestion_id: str, status: str):
+        _get_supabase().table("batch_suggestions").update({"status": status}).eq(
+            "suggestion_id", suggestion_id
+        ).execute()
+
     def list_properties(self) -> list[dict]:
         """Get distinct property IDs with conversation counts and display names."""
         result = (
@@ -404,6 +432,20 @@ class Persistence:
         _get_supabase().table("kb_suggestions").update(update_data).eq(
             "suggestion_id", suggestion_id
         ).execute()
+
+    def reset_property_data(self, property_id: str):
+        """Delete all transactional data for a property, preserving the property and knowledge base."""
+        sb = _get_supabase()
+        # Child tables first (FK constraints)
+        sb.table("messages").delete().eq("property_id", property_id).execute()
+        sb.table("evaluations").delete().eq("property_id", property_id).execute()
+        sb.table("escalations").delete().eq("property_id", property_id).execute()
+        sb.table("conversations").delete().eq("property_id", property_id).execute()
+        sb.table("question_patterns").delete().eq("property_id", property_id).execute()
+        sb.table("escalation_insights").delete().eq("property_id", property_id).execute()
+        sb.table("batch_suggestions").delete().eq("property_id", property_id).execute()
+        sb.table("kb_suggestions").delete().eq("property_id", property_id).execute()
+        sb.table("guest_tokens").delete().eq("property_id", property_id).execute()
 
 
 persistence = Persistence()
