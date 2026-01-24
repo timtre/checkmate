@@ -362,7 +362,7 @@ class Persistence:
             "total_escalations": escs.count or 0,
         }
 
-    # --- KB Suggestions ---
+    # --- Knowledge Base Suggestions ---
 
     def get_kb_suggestions(self, property_id: str, status: str | None = None) -> list[dict]:
         query = _get_supabase().table("kb_suggestions").select("*").eq("property_id", property_id)

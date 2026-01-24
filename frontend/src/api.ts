@@ -289,7 +289,7 @@ export async function deleteAllConversations(
   return res.json();
 }
 
-// ===== KB Suggestions =====
+// ===== Knowledge Base Suggestions =====
 
 export interface KBSuggestion {
   suggestion_id: string;

@@ -1,4 +1,4 @@
-"""Router for KB suggestion management (approve/dismiss drafted articles)."""
+"""Router for Knowledge Base suggestion management (approve/dismiss drafted articles)."""
 
 from fastapi import APIRouter, HTTPException
 

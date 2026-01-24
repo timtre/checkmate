@@ -10,6 +10,7 @@ export default function PropertyDocumentEditor({ propertyId }: Props) {
   const [content, setContent] = useState("");
   const [title, setTitle] = useState("Property Guide");
   const [editing, setEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState("");
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,6 +36,7 @@ export default function PropertyDocumentEditor({ propertyId }: Props) {
   }, [propertyId]);
 
   function startEdit() {
+    setDraftTitle(title);
     setDraft(content);
     setEditing(true);
     setFeedback(null);
@@ -49,7 +51,8 @@ export default function PropertyDocumentEditor({ propertyId }: Props) {
     setSaving(true);
     setFeedback(null);
     try {
-      await ingestDocument(propertyId, title, draft);
+      await ingestDocument(propertyId, draftTitle, draft);
+      setTitle(draftTitle);
       setContent(draft);
       setEditing(false);
       setFeedback({ type: "success", message: "Document saved." });
@@ -73,6 +76,7 @@ export default function PropertyDocumentEditor({ propertyId }: Props) {
         </p>
         <button
           onClick={() => {
+            setDraftTitle("Property Guide");
             setDraft("");
             setEditing(true);
           }}
@@ -87,17 +91,17 @@ export default function PropertyDocumentEditor({ propertyId }: Props) {
   return (
     <div className="rounded-lg border">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        <h3 className="font-medium text-sm">{title}</h3>
-        {!editing && (
+      {!editing && (
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <h3 className="font-medium text-sm">{title}</h3>
           <button
             onClick={startEdit}
             className="px-3 py-1 text-sm rounded-md bg-muted hover:bg-muted/80 transition-colors"
           >
             Edit
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Feedback */}
       {feedback && (
@@ -115,6 +119,12 @@ export default function PropertyDocumentEditor({ propertyId }: Props) {
       {/* Content */}
       {editing ? (
         <div className="p-4 space-y-3">
+          <input
+            value={draftTitle}
+            onChange={(e) => setDraftTitle(e.target.value)}
+            className="w-full px-3 py-2 rounded-md border bg-background text-sm font-medium"
+            placeholder="Document title"
+          />
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -124,7 +134,7 @@ export default function PropertyDocumentEditor({ propertyId }: Props) {
           <div className="flex gap-2">
             <button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !draftTitle.trim()}
               className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
               {saving ? "Saving..." : "Save"}

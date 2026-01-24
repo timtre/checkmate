@@ -155,7 +155,7 @@ class TokenValidationResponse(BaseModel):
     conversation_id: Optional[str] = None
 
 
-# --- KB Suggestions ---
+# --- Knowledge Base Suggestions ---
 
 
 class KBSuggestion(BaseModel):

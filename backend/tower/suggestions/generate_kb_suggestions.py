@@ -1,4 +1,4 @@
-"""Tower batch job: generate KB article suggestions from replied escalations.
+"""Tower batch job: generate Knowledge Base article suggestions from replied escalations.
 
 Analyzes PM replies to escalations and uses OpenAI to draft knowledge base articles.
 These are surfaced as suggestions for PM approval in the admin dashboard.
@@ -123,7 +123,7 @@ def main():
             total_suggestions += 1
             print(f"Created suggestion '{article.get('title')}' from {len(batch)} escalations")
 
-    print(f"Done. Created {total_suggestions} KB suggestions.")
+    print(f"Done. Created {total_suggestions} Knowledge Base suggestions.")
 
 
 if __name__ == "__main__":

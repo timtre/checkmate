@@ -5,5 +5,5 @@ source = ["./**/*.py", "./requirements.txt"]
 
 [[parameters]]
 name = "property_id"
-description = "Property ID to generate KB suggestions for. Leave empty for all properties."
+description = "Property ID to generate Knowledge Base suggestions for. Leave empty for all properties."
 default = ""

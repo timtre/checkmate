@@ -1,3 +1,4 @@
+import ReactMarkdown from "react-markdown";
 import type { Source } from "../api";
 
 interface Props {
@@ -17,7 +18,9 @@ export default function MessageBubble({ role, text, confidence, sources, escalat
   return (
     <div className={`message-bubble ${className}`}>
       {isPM && <div className="pm-label">Property Manager</div>}
-      <div className="bubble-content">{text}</div>
+      <div className={`bubble-content${!isGuest ? " bubble-markdown" : ""}`}>
+        {isGuest ? text : <ReactMarkdown>{text}</ReactMarkdown>}
+      </div>
       {role === "assistant" && (
         <div className="bubble-meta">
           {confidence !== undefined && (

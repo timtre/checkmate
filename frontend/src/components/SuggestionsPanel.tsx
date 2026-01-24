@@ -81,23 +81,29 @@ export default function SuggestionsPanel({ propertyId, onApproved }: Props) {
     }
   }
 
-  if (suggestions.length === 0) return null;
-
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
           <Lightbulb className="h-4 w-4 text-yellow-500" />
-          KB Suggestions
-          <Badge variant="secondary" className="ml-1">
-            {suggestions.length}
-          </Badge>
+          Knowledge Base Suggestions
+          {suggestions.length > 0 && (
+            <Badge variant="secondary" className="ml-1">
+              {suggestions.length}
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          These articles were drafted from your escalation replies. Approve to add to the knowledge base.
-        </p>
+        {suggestions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No pending suggestions. Reply to escalations and run the Tower job to generate Knowledge Base article drafts.
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            These articles were drafted from your escalation replies. Approve to add to the knowledge base.
+          </p>
+        )}
         {suggestions.map((s) => {
           const isExpanded = expandedId === s.suggestion_id;
           return (

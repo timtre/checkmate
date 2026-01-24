@@ -100,7 +100,7 @@ create table if not exists escalations (
 
 create index if not exists escalations_property_idx on escalations (property_id);
 
--- KB Suggestions (drafted from PM replies to escalations)
+-- Knowledge Base Suggestions (drafted from PM replies to escalations)
 create table if not exists kb_suggestions (
     suggestion_id text primary key,
     property_id text not null,
