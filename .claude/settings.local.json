@@ -3,7 +3,8 @@
     "allow": [
       "WebFetch(domain:docs.tower.dev)",
       "Bash(python -m py_compile:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(tree:*)"
     ]
   }
 }
