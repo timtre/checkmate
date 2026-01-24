@@ -26,9 +26,9 @@ Checkmate provides intelligent guest support powered by RAG (Retrieval-Augmented
 | Data Validation | Pydantic v2, Pydantic Settings |
 | Vector Database | Supabase pgvector (1536-dim, IVFFlat index) |
 | Embeddings | OpenAI `text-embedding-3-small` |
-| LLM | Tower SDK (configurable model, default `gpt-5.1`) |
-| Persistence | Tower Apache Iceberg tables (5 tables) |
-| Batch Processing | Tower batch pipeline + Polars |
+| LLM | OpenAI (configurable model, default `gpt-5.1`) |
+| Persistence | Supabase (primary CRUD) |
+| Batch Processing | Tower batch pipeline + Apache Iceberg + Polars |
 | Data Serialization | PyArrow |
 | HTTP Client | httpx |
 | Server | Uvicorn (ASGI) |
@@ -54,11 +54,11 @@ Guest Message (POST /properties/{property_id}/chat)
 │              Concierge Service                    │
 │                                                   │
 │  1. Create/fetch conversation                     │
-│  2. Save guest message → Tower                    │
+│  2. Save guest message → Supabase                  │
 │  3. Retrieve context → Supabase pgvector          │
 │  4. Build prompt (history + context)              │
-│  5. Call Tower LLM → answer + confidence          │
-│  6. Save assistant message → Tower                │
+│  5. Call OpenAI LLM → answer + confidence          │
+│  6. Save assistant message → Supabase              │
 │  7. Track question pattern                        │
 └──────┬───────────────────────────────────────────┘
        │
@@ -68,7 +68,7 @@ Guest Message (POST /properties/{property_id}/chat)
 │                                                   │
 │  Check: low confidence, dissatisfaction,          │
 │         repeated questions, knowledge gaps        │
-│  Save verdict → Tower                             │
+│  Save verdict → Supabase                           │
 └──────┬───────────────────────────────────────────┘
        │
        ▼
@@ -90,7 +90,7 @@ Guest Message (POST /properties/{property_id}/chat)
 - **Routers** (`app/routers/`) — HTTP endpoints handling request/response serialization
 - **Services** (`app/services/`) — Business logic: RAG orchestration, quality evaluation, escalation workflow, persistence
 - **Models** (`app/models/`) — Pydantic schemas for API contracts, PyArrow schemas for Iceberg tables
-- **External Dependencies** — Supabase (vector store), OpenAI (embeddings), Tower (LLM + persistence)
+- **External Dependencies** — Supabase (vector store + persistence), OpenAI (embeddings + LLM), Tower (batch analytics)
 
 ### Multi-Tenancy
 
@@ -116,7 +116,7 @@ Failed evaluations trigger the escalation workflow.
 - Node.js 18+ and npm (for frontend)
 - Supabase project with pgvector extension enabled
 - OpenAI API key (for embeddings)
-- Tower SDK access (for LLM and persistence)
+- Tower SDK access (for batch analytics pipeline)
 
 ---
 
@@ -162,7 +162,7 @@ All settings are loaded from environment variables (`.env` file) via Pydantic Se
 | `SUPABASE_URL` | Supabase project URL | — |
 | `SUPABASE_KEY` | Supabase anon or service key | — |
 | `OPENAI_API_KEY` | OpenAI API key (used for embeddings) | — |
-| `TOWER_CHAT_MODEL` | LLM model routed through Tower | `gpt-5.1` |
+| `CHAT_MODEL` | OpenAI LLM model name | `gpt-5.1` |
 | `EMBEDDING_MODEL` | OpenAI embedding model | `text-embedding-3-small` |
 | `CONFIDENCE_THRESHOLD` | Minimum confidence before escalation | `0.6` |
 | `ESCALATION_EMAIL_FROM` | Sender address for escalation emails | `concierge@checkmate.ai` |
@@ -366,17 +366,17 @@ Stores document chunks with vector embeddings for similarity search.
 
 **RPC Function:** `match_knowledge_base(query_embedding, match_count, filter_property_id, similarity_threshold)` — performs filtered vector similarity search.
 
-### Tower Iceberg Tables
+### Tower Iceberg Tables (Batch Pipeline)
 
-Five Apache Iceberg tables persisted via Tower SDK:
+Apache Iceberg tables used by the Tower batch analytics pipeline (defined as PyArrow schemas in `tower_schemas.py`):
 
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `checkmate_conversations` | Conversation metadata | conversation_id, property_id, guest_name, message_count |
-| `checkmate_messages` | All messages (guest/assistant/PM) | message_id, role, content, confidence, sources_json |
-| `checkmate_evaluations` | Evaluation verdicts | evaluation_id, verdict, confidence, reasons_json |
-| `checkmate_escalations` | Escalation records | escalation_id, reason, status, pm_reply |
-| `checkmate_question_patterns` | Aggregated insights | question_pattern, count, avg_confidence, escalation_count |
+| `checkmate_messages` | Message data for analytics | message_id, role, content, confidence, sources_json |
+| `checkmate_evaluations` | Evaluation data for analytics | evaluation_id, verdict, confidence, reasons_json |
+| `checkmate_question_patterns` | Aggregated insights output | question_pattern, count, avg_confidence, escalation_count |
+
+Note: Primary CRUD persistence for all data (conversations, messages, evaluations, escalations) is handled by Supabase. These Iceberg tables are read/written by the Tower batch job for analytics aggregation.
 
 ---
 
@@ -434,7 +434,7 @@ checkmate/
 │   │   │   ├── evaluation.py          # Automatic quality checks
 │   │   │   ├── escalation.py          # Escalation workflow + PM replies
 │   │   │   ├── tokens.py             # Guest token management
-│   │   │   └── tower_persistence.py   # Tower table CRUD operations
+│   │   │   └── tower_persistence.py   # Supabase CRUD operations
 │   │   └── utils/
 │   │       └── email.py               # Email service (mock)
 │   ├── supabase/

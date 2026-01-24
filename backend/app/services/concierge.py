@@ -43,7 +43,7 @@ def generate_response(
     guest_message: str,
     guest_name: str | None = None,
 ) -> ChatResponse:
-    """Generate a concierge response using RAG + Tower LLM."""
+    """Generate a concierge response using RAG + OpenAI LLM."""
     # Create conversation if new
     if not conversation_id:
         conversation_id = persistence.create_conversation(property_id, guest_name)
@@ -68,7 +68,7 @@ def generate_response(
 
     # Call OpenAI
     response = _get_openai().chat.completions.create(
-        model=settings.tower_chat_model,
+        model=settings.chat_model,
         messages=messages,
         max_completion_tokens=1000,
     )

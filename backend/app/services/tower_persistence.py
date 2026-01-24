@@ -230,7 +230,7 @@ class Persistence:
         return result.data or []
 
     def list_properties(self) -> list[dict]:
-        """Get distinct property IDs with conversation counts."""
+        """Get distinct property IDs with conversation counts and display names."""
         result = (
             _get_supabase().table("conversations").select("property_id, conversation_id").execute()
         )
@@ -239,10 +239,33 @@ class Persistence:
         for row in rows:
             pid = row["property_id"]
             counts[pid] = counts.get(pid, 0) + 1
+
+        # Also include properties from the properties table (even if no conversations)
+        props_result = _get_supabase().table("properties").select("property_id, name").execute()
+        names: dict[str, str] = {}
+        for row in props_result.data or []:
+            names[row["property_id"]] = row["name"]
+            if row["property_id"] not in counts:
+                counts[row["property_id"]] = 0
+
         return [
-            {"property_id": pid, "conversation_count": count}
+            {"property_id": pid, "name": names.get(pid, ""), "conversation_count": count}
             for pid, count in sorted(counts.items())
         ]
+
+    def create_property(self, property_id: str, name: str = "") -> dict:
+        """Create a new property entry."""
+        _get_supabase().table("properties").upsert(
+            {"property_id": property_id, "name": name}
+        ).execute()
+        return {"property_id": property_id, "name": name}
+
+    def update_property_name(self, property_id: str, name: str) -> dict | None:
+        """Update a property's display name (upsert)."""
+        _get_supabase().table("properties").upsert(
+            {"property_id": property_id, "name": name}
+        ).execute()
+        return {"property_id": property_id, "name": name}
 
     def get_property_stats(self, property_id: str) -> dict:
         convs = (

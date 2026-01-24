@@ -1,9 +1,31 @@
 import { useState } from "react";
+import { Send, Inbox } from "lucide-react";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { replyToEscalation, type EscalationItem } from "../api";
 
 interface EscalationCardProps {
   escalation: EscalationItem;
   onReplied: (id: string) => void;
+}
+
+function getReasonColor(reason: string) {
+  switch (reason) {
+    case "low_confidence": return "bg-amber-100 text-amber-800 border-amber-200";
+    case "dissatisfaction": return "bg-red-100 text-red-800 border-red-200";
+    case "repeated_question": return "bg-purple-100 text-purple-800 border-purple-200";
+    case "knowledge_gap": return "bg-blue-100 text-blue-800 border-blue-200";
+    default: return "bg-gray-100 text-gray-800 border-gray-200";
+  }
+}
+
+function getConfidenceColor(confidence: number) {
+  if (confidence >= 0.7) return "bg-emerald-100 text-emerald-800 border-emerald-200";
+  if (confidence >= 0.4) return "bg-amber-100 text-amber-800 border-amber-200";
+  return "bg-red-100 text-red-800 border-red-200";
 }
 
 export default function EscalationCard({ escalation, onReplied }: EscalationCardProps) {
@@ -23,41 +45,67 @@ export default function EscalationCard({ escalation, onReplied }: EscalationCard
     }
   }
 
-  const confidenceClass =
-    escalation.confidence >= 0.7 ? "high" : escalation.confidence >= 0.4 ? "mid" : "low";
-
   return (
-    <div className="escalation-item">
-      <div className="escalation-meta">
-        <span className="reason-badge">{escalation.reason}</span>
-        <span className={`confidence-badge ${confidenceClass}`}>
-          {Math.round(escalation.confidence * 100)}%
-        </span>
-        <span className="escalation-time">
-          {new Date(escalation.created_at).toLocaleString()}
-        </span>
-      </div>
-      <div className="escalation-guest-msg">{escalation.guest_message}</div>
-      <div className="escalation-ai-answer">{escalation.ai_answer}</div>
-      {escalation.pm_reply ? (
-        <div className="escalation-pm-reply">
-          <strong>Reply:</strong> {escalation.pm_reply}
+    <Card className="mb-3">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge className={getReasonColor(escalation.reason)} variant="outline">
+            {escalation.reason.replace(/_/g, " ")}
+          </Badge>
+          <Badge className={getConfidenceColor(escalation.confidence)} variant="outline">
+            {Math.round(escalation.confidence * 100)}%
+          </Badge>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {new Date(escalation.created_at).toLocaleString()}
+          </span>
         </div>
-      ) : replySuccess ? (
-        <div className="result success">Reply sent</div>
-      ) : (
-        <div className="escalation-reply-form">
-          <textarea
-            value={replyText}
-            onChange={(e) => setReplyText(e.target.value)}
-            placeholder="Type a reply to inject into the conversation..."
-            rows={2}
-          />
-          <button onClick={handleReply} disabled={replying || !replyText.trim()}>
-            {replying ? "Sending..." : "Send Reply"}
-          </button>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div>
+          <p className="font-medium text-sm">{escalation.guest_message}</p>
         </div>
-      )}
+        <div className="text-sm text-muted-foreground border-l-2 border-border pl-3">
+          {escalation.ai_answer}
+        </div>
+
+        {escalation.pm_reply ? (
+          <Alert variant="success">
+            <AlertDescription>
+              <strong>Reply:</strong> {escalation.pm_reply}
+            </AlertDescription>
+          </Alert>
+        ) : replySuccess ? (
+          <Alert variant="success">
+            <AlertDescription>Reply sent successfully.</AlertDescription>
+          </Alert>
+        ) : (
+          <div className="flex gap-2 items-start pt-1">
+            <Textarea
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              placeholder="Type a reply to inject into the conversation..."
+              rows={2}
+              className="flex-1 resize-none"
+            />
+            <Button
+              size="sm"
+              onClick={handleReply}
+              disabled={replying || !replyText.trim()}
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function EscalationsEmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+      <Inbox className="h-10 w-10 mb-3 opacity-50" />
+      <p className="text-sm">No escalations found.</p>
     </div>
   );
 }

@@ -14,7 +14,10 @@
       "Bash(npm install)",
       "Bash(npx tsc:*)",
       "Bash(npm run build:*)",
-      "Bash(poetry run black:*)"
+      "Bash(poetry run black:*)",
+      "Bash(ls:*)",
+      "Bash(npm install:*)",
+      "mcp__supabase__apply_migration"
     ]
   }
 }

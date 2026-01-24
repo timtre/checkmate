@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { validateToken, sendMessage, type ChatResponse, type Source } from "../api";
 import MessageBubble from "../components/MessageBubble";
+import "../guest-chat.css";
 
 interface Message {
   role: "guest" | "assistant";

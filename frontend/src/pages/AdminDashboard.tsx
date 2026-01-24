@@ -4,18 +4,23 @@ import {
   getInsights,
   getEscalations,
   getDocuments,
-  createToken,
+  createProperty,
   type PropertyItem,
   type InsightsResponse,
   type EscalationItem,
   type KnowledgeBaseDocument,
-  type TokenCreateResponse,
 } from "../api";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import Sidebar from "../components/Sidebar";
+import AdminHeader from "../components/AdminHeader";
 import StatsOverview from "../components/StatsOverview";
-import EscalationCard from "../components/EscalationCard";
+import EscalationCard, { EscalationsEmptyState } from "../components/EscalationCard";
 import InsightsTable from "../components/InsightsTable";
 import DocumentsTable from "../components/DocumentsTable";
 import KnowledgePanel from "../components/KnowledgePanel";
+import SettingsPanel from "../components/SettingsPanel";
 
 export default function AdminDashboard() {
   const [properties, setProperties] = useState<PropertyItem[]>([]);
@@ -26,15 +31,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [escalationFilter, setEscalationFilter] = useState<"open" | "all">("open");
-
-  // Create property state
-  const [newPropertyId, setNewPropertyId] = useState("");
-
-  // Guest link state
-  const [guestName, setGuestName] = useState("");
-  const [tokenResult, setTokenResult] = useState<TokenCreateResponse | null>(null);
-  const [tokenLoading, setTokenLoading] = useState(false);
-  const [tokenError, setTokenError] = useState("");
+  const [activeTab, setActiveTab] = useState("escalations");
 
   useEffect(() => {
     getProperties()
@@ -74,166 +71,132 @@ export default function AdminDashboard() {
     setEscalations((prev) => prev.filter((e) => e.escalation_id !== id));
   }
 
-  function handleAddProperty() {
-    const id = newPropertyId.trim();
-    if (!id) return;
+  async function handleAddProperty(id: string, name: string) {
     if (!properties.some((p) => p.property_id === id)) {
-      setProperties((prev) => [...prev, { property_id: id, conversation_count: 0 }]);
+      await createProperty(id, name).catch(() => {});
+      setProperties((prev) => [...prev, { property_id: id, name, conversation_count: 0 }]);
     }
     setPropertyId(id);
-    setNewPropertyId("");
   }
 
-  async function handleGenerateToken() {
-    if (!propertyId.trim() || !guestName.trim()) return;
-    setTokenLoading(true);
-    setTokenResult(null);
-    setTokenError("");
-    try {
-      const res = await createToken(propertyId, guestName);
-      setTokenResult(res);
-      setGuestName("");
-    } catch (err) {
-      setTokenError(String(err));
-    } finally {
-      setTokenLoading(false);
-    }
+  function handleNameUpdated(name: string) {
+    setProperties((prev) =>
+      prev.map((p) => (p.property_id === propertyId ? { ...p, name } : p))
+    );
   }
 
-  const guestLink = tokenResult
-    ? `${window.location.origin}/chat/${tokenResult.token}`
-    : null;
+  const currentProperty = properties.find((p) => p.property_id === propertyId);
+  const propertyName = currentProperty?.name || "";
+  const openCount = escalations.filter((e) => !e.pm_reply).length;
 
   return (
-    <div className="pm-layout">
-      <aside className="pm-sidebar">
-        <h2>Properties</h2>
-        {properties.length === 0 ? (
-          <p className="notice">No properties found.</p>
-        ) : (
-          <ul className="property-list">
-            {properties.map((p) => (
-              <li
-                key={p.property_id}
-                className={p.property_id === propertyId ? "active" : ""}
-                onClick={() => setPropertyId(p.property_id)}
-              >
-                <span className="property-name">{p.property_id}</span>
-                <span className="property-count">{p.conversation_count}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="add-property-form">
-          <input
-            type="text"
-            value={newPropertyId}
-            onChange={(e) => setNewPropertyId(e.target.value)}
-            placeholder="New property ID"
-            onKeyDown={(e) => e.key === "Enter" && handleAddProperty()}
-          />
-          <button onClick={handleAddProperty} disabled={!newPropertyId.trim()}>
-            Add
-          </button>
-        </div>
-      </aside>
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar
+        properties={properties}
+        selectedId={propertyId}
+        onSelect={setPropertyId}
+        onAdd={handleAddProperty}
+      />
 
-      <main className="pm-main">
-        <header className="admin-header">
-          <h1>
-            Checkmate Admin
-            <button className="refresh-btn" onClick={fetchData} disabled={loading}>
-              {loading ? "Loading..." : "Refresh"}
-            </button>
-          </h1>
-        </header>
+      <main className="flex-1 overflow-y-auto p-6">
+        <AdminHeader
+          propertyId={propertyId}
+          propertyName={propertyName}
+          loading={loading}
+          onRefresh={fetchData}
+        />
 
         {!propertyId && (
-          <p className="notice">Select a property from the sidebar.</p>
+          <div className="flex items-center justify-center h-[60vh] text-muted-foreground">
+            <p>Select a property from the sidebar to get started.</p>
+          </div>
         )}
 
-        {error && <div className="result error">{error}</div>}
-
-        {insights && (
-          <>
-            <StatsOverview
-              conversations={insights.total_conversations}
-              messages={insights.total_messages}
-              escalations={insights.total_escalations}
-            />
-
-            <section className="admin-card">
-              <h2>
-                Escalations
-                {escalations.length > 0 && (
-                  <span className="count-badge">{escalations.length}</span>
-                )}
-              </h2>
-              <div className="filter-toggle">
-                <button
-                  className={escalationFilter === "open" ? "active" : ""}
-                  onClick={() => setEscalationFilter("open")}
-                >
-                  Open
-                </button>
-                <button
-                  className={escalationFilter === "all" ? "active" : ""}
-                  onClick={() => setEscalationFilter("all")}
-                >
-                  All
-                </button>
-              </div>
-              {escalations.length === 0 ? (
-                <p className="notice">No escalations found.</p>
-              ) : (
-                escalations.map((esc) => (
-                  <EscalationCard
-                    key={esc.escalation_id}
-                    escalation={esc}
-                    onReplied={handleReplied}
-                  />
-                ))
-              )}
-            </section>
-
-            <InsightsTable title="Most Asked Questions" items={insights.most_asked} />
-            <InsightsTable title="Worst Answered Questions" items={insights.worst_answered} />
-
-            <DocumentsTable documents={documents} />
-          </>
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         {propertyId && (
           <>
-            <section className="admin-card">
-              <h2>Generate Guest Link</h2>
-              <div className="form-group">
-                <label>Guest Name</label>
-                <input
-                  type="text"
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  placeholder="Guest name"
-                />
-              </div>
-              <button
-                onClick={handleGenerateToken}
-                disabled={tokenLoading || !guestName.trim()}
-              >
-                {tokenLoading ? "Generating..." : "Generate Link"}
-              </button>
-              {guestLink && (
-                <div className="token-result">
-                  <label>Shareable Link:</label>
-                  <code>{guestLink}</code>
-                </div>
-              )}
-              {tokenError && <div className="result error">{tokenError}</div>}
-            </section>
+            <StatsOverview
+              conversations={insights?.total_conversations ?? 0}
+              messages={insights?.total_messages ?? 0}
+              escalations={insights?.total_escalations ?? 0}
+              loading={loading && !insights}
+            />
 
-            <section className="admin-card">
-              <KnowledgePanel propertyId={propertyId} />
-            </section>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList>
+                <TabsTrigger value="escalations">
+                  Escalations
+                  {openCount > 0 && (
+                    <Badge variant="destructive" className="ml-1.5 h-5 px-1.5 text-[10px]">
+                      {openCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="insights">Insights</TabsTrigger>
+                <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
+                <TabsTrigger value="settings">Settings</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="escalations" className="space-y-4 mt-4">
+                <div className="flex gap-2 mb-2">
+                  <button
+                    onClick={() => setEscalationFilter("open")}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                      escalationFilter === "open"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    Open
+                  </button>
+                  <button
+                    onClick={() => setEscalationFilter("all")}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                      escalationFilter === "all"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    All
+                  </button>
+                </div>
+
+                {escalations.length === 0 ? (
+                  <EscalationsEmptyState />
+                ) : (
+                  escalations.map((esc) => (
+                    <EscalationCard
+                      key={esc.escalation_id}
+                      escalation={esc}
+                      onReplied={handleReplied}
+                    />
+                  ))
+                )}
+              </TabsContent>
+
+              <TabsContent value="insights" className="space-y-4 mt-4">
+                <InsightsTable title="Most Asked Questions" items={insights?.most_asked ?? []} />
+                <InsightsTable title="Worst Answered Questions" items={insights?.worst_answered ?? []} />
+              </TabsContent>
+
+              <TabsContent value="knowledge" className="space-y-4 mt-4">
+                <KnowledgePanel propertyId={propertyId} onUploaded={fetchData} />
+                <DocumentsTable documents={documents} />
+              </TabsContent>
+
+              <TabsContent value="settings" className="mt-4">
+                <SettingsPanel
+                  propertyId={propertyId}
+                  propertyName={propertyName}
+                  onNameUpdated={handleNameUpdated}
+                />
+              </TabsContent>
+            </Tabs>
           </>
         )}
       </main>

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Checkmate is a property-scoped AI concierge built with a FastAPI backend and React frontend. It provides intelligent guest support for vacation rental properties using RAG (Retrieval-Augmented Generation) with Supabase pgvector for knowledge retrieval and OpenAI/Tower for LLM responses.
+Checkmate is a property-scoped AI concierge built with a FastAPI backend and React frontend. It provides intelligent guest support for vacation rental properties using RAG (Retrieval-Augmented Generation) with Supabase pgvector for knowledge retrieval and OpenAI for LLM responses.
 
 ## Commands
 
@@ -39,15 +39,15 @@ cd backend && poetry run python seed.py
 **Key layers:**
 
 - **Routers** (`backend/app/routers/`) — HTTP endpoints: chat, evaluation, escalation, insights, properties, tokens
-- **Services** (`backend/app/services/`) — Business logic: concierge (RAG+LLM), knowledge_base (pgvector), evaluation (quality checks), escalation (PM notifications), tokens (guest access), tower_persistence (Iceberg storage)
+- **Services** (`backend/app/services/`) — Business logic: concierge (RAG+LLM), knowledge_base (pgvector), evaluation (quality checks), escalation (PM notifications), tokens (guest access), tower_persistence (Supabase CRUD)
 - **Models** (`backend/app/models/`) — `schemas.py` for Pydantic API models, `tower_schemas.py` for PyArrow persistence schemas
 
 **External dependencies:**
-- **Supabase** — pgvector for document embeddings and similarity search
-- **OpenAI** — Embeddings (`text-embedding-3-small`) for knowledge base
-- **Tower SDK** — LLM chat (model configurable via `TOWER_CHAT_MODEL`) and Apache Iceberg table persistence
+- **Supabase** — pgvector for document embeddings, similarity search, and primary data persistence (conversations, messages, evaluations, escalations, question_patterns)
+- **OpenAI** — Embeddings (`text-embedding-3-small`) for knowledge base and LLM chat (model configurable via `CHAT_MODEL`, default `gpt-5.1`)
+- **Tower SDK** — Batch analytics pipeline only (insights aggregation via Apache Iceberg tables)
 
-**Persistence:** Five Tower tables (conversations, messages, evaluations, escalations, question_patterns) using PyArrow schemas and Polars for querying.
+**Persistence:** Supabase is the primary data store for all CRUD operations. Tower Iceberg tables (with PyArrow schemas) are used by the batch pipeline for analytics aggregation.
 
 **Multi-tenancy:** All data is scoped by `property_id`. Knowledge base, conversations, evaluations, and escalations are all filtered per-property.
 
@@ -59,7 +59,7 @@ cd backend && poetry run python seed.py
 
 ## Configuration
 
-Environment variables loaded via Pydantic settings from `backend/.env` (see `backend/.env.example` for template). Key settings: `SUPABASE_URL`, `SUPABASE_KEY`, `OPENAI_API_KEY`, `TOWER_CHAT_MODEL`, `CONFIDENCE_THRESHOLD`.
+Environment variables loaded via Pydantic settings from `backend/.env` (see `backend/.env.example` for template). Key settings: `SUPABASE_URL`, `SUPABASE_KEY`, `OPENAI_API_KEY`, `CHAT_MODEL`, `CONFIDENCE_THRESHOLD`.
 
 ## Tower Batch Pipeline
 

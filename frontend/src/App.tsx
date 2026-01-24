@@ -1,7 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import GuestChatView from "./pages/GuestChatView";
 import AdminDashboard from "./pages/AdminDashboard";
-import "./App.css";
 
 function App() {
   return (

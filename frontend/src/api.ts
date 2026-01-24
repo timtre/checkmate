@@ -111,6 +111,7 @@ export async function getDocuments(
 
 export interface PropertyItem {
   property_id: string;
+  name: string;
   conversation_count: number;
 }
 
@@ -121,6 +122,37 @@ export interface PropertiesListResponse {
 export async function getProperties(): Promise<PropertiesListResponse> {
   const res = await fetch(`${BASE_URL}/properties`);
   if (!res.ok) throw new Error(`Properties failed: ${res.status}`);
+  return res.json();
+}
+
+export interface PropertyResponse {
+  property_id: string;
+  name: string;
+}
+
+export async function createProperty(
+  propertyId: string,
+  name: string
+): Promise<PropertyResponse> {
+  const res = await fetch(`${BASE_URL}/properties`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ property_id: propertyId, name }),
+  });
+  if (!res.ok) throw new Error(`Create property failed: ${res.status}`);
+  return res.json();
+}
+
+export async function updatePropertyName(
+  propertyId: string,
+  name: string
+): Promise<PropertyResponse> {
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error(`Update property failed: ${res.status}`);
   return res.json();
 }
 
