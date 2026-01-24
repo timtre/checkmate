@@ -6,7 +6,14 @@
       "Bash(pip install:*)",
       "Bash(tree:*)",
       "WebSearch",
-      "mcp__tower__tower_file_read"
+      "mcp__tower__tower_file_read",
+      "Bash(git mv:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)",
+      "Bash(npm create:*)",
+      "Bash(npm install)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

@@ -4,26 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Checkmate is a property-scoped AI concierge backend built with FastAPI. It provides intelligent guest support for vacation rental properties using RAG (Retrieval-Augmented Generation) with Supabase pgvector for knowledge retrieval and OpenAI/Tower for LLM responses.
+Checkmate is a property-scoped AI concierge built with a FastAPI backend and React frontend. It provides intelligent guest support for vacation rental properties using RAG (Retrieval-Augmented Generation) with Supabase pgvector for knowledge retrieval and OpenAI/Tower for LLM responses.
 
 ## Commands
 
 ```bash
-# Install dependencies
-poetry install
-
-# Run development server (auto-reload)
-poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Backend
+cd backend && poetry install
+cd backend && poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Format code (line-length: 100)
-poetry run black app/
+cd backend && poetry run black app/
 
 # Check formatting
-poetry run black --check app/
+cd backend && poetry run black --check app/
 
 # Run Tower batch job (insights aggregation)
-poetry run tower run --parameter=property_id=           # all properties
-poetry run tower run --parameter=property_id=<uuid>     # specific property
+cd backend && poetry run tower run --parameter=property_id=           # all properties
+cd backend && poetry run tower run --parameter=property_id=<uuid>     # specific property
+
+# Frontend
+cd frontend && npm install
+cd frontend && npm run dev
 ```
 
 ## Architecture
@@ -32,9 +34,9 @@ poetry run tower run --parameter=property_id=<uuid>     # specific property
 
 **Key layers:**
 
-- **Routers** (`app/routers/`) — HTTP endpoints: chat, evaluation, escalation, insights
-- **Services** (`app/services/`) — Business logic: concierge (RAG+LLM), knowledge_base (pgvector), evaluation (quality checks), escalation (PM notifications), tower_persistence (Iceberg storage)
-- **Models** (`app/models/`) — `schemas.py` for Pydantic API models, `tower_schemas.py` for PyArrow persistence schemas
+- **Routers** (`backend/app/routers/`) — HTTP endpoints: chat, evaluation, escalation, insights
+- **Services** (`backend/app/services/`) — Business logic: concierge (RAG+LLM), knowledge_base (pgvector), evaluation (quality checks), escalation (PM notifications), tower_persistence (Iceberg storage)
+- **Models** (`backend/app/models/`) — `schemas.py` for Pydantic API models, `tower_schemas.py` for PyArrow persistence schemas
 
 **External dependencies:**
 - **Supabase** — pgvector for document embeddings and similarity search
@@ -47,10 +49,12 @@ poetry run tower run --parameter=property_id=<uuid>     # specific property
 
 **Evaluation pipeline:** Every AI response is automatically evaluated for low confidence, dissatisfaction signals, repeated questions, and knowledge gaps. Failed evaluations trigger escalations with email notifications.
 
+**Frontend:** Vite + React test UI at `frontend/`. Provides a chat interface and knowledge base document ingestion panel for testing the backend API.
+
 ## Configuration
 
-Environment variables loaded via Pydantic settings from `.env` (see `.env.example` for template). Key settings: `SUPABASE_URL`, `SUPABASE_KEY`, `OPENAI_API_KEY`, `TOWER_CHAT_MODEL`, `CONFIDENCE_THRESHOLD`.
+Environment variables loaded via Pydantic settings from `backend/.env` (see `backend/.env.example` for template). Key settings: `SUPABASE_URL`, `SUPABASE_KEY`, `OPENAI_API_KEY`, `TOWER_CHAT_MODEL`, `CONFIDENCE_THRESHOLD`.
 
 ## Tower Batch Pipeline
 
-Located in `tower/`. The `aggregate_insights.py` job aggregates question patterns across conversations to compute frequency, average confidence, and escalation counts. Configured via `Towerfile`.
+Located in `backend/tower/`. The `aggregate_insights.py` job aggregates question patterns across conversations to compute frequency, average confidence, and escalation counts. Configured via `Towerfile`.
