@@ -1,16 +1,20 @@
 """Properties router: list, create, and update properties."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 
 from app.services.tower_persistence import persistence
 
 router = APIRouter(tags=["properties"])
 
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB
+
 
 class PropertyItem(BaseModel):
     property_id: str
     name: str = ""
+    image_url: str = ""
     conversation_count: int
 
 
@@ -30,6 +34,7 @@ class PropertyUpdate(BaseModel):
 class PropertyResponse(BaseModel):
     property_id: str
     name: str
+    image_url: str = ""
 
 
 @router.get("/properties", response_model=PropertiesListResponse)
@@ -60,3 +65,25 @@ def reset_property_data(property_id: str):
     """Reset all transactional data for a property, preserving the property and knowledge base."""
     persistence.reset_property_data(property_id)
     return {"reset": True}
+
+
+class ImageUploadResponse(BaseModel):
+    property_id: str
+    image_url: str
+
+
+@router.post("/properties/{property_id}/image", response_model=ImageUploadResponse)
+async def upload_property_image(property_id: str, file: UploadFile = File(...)):
+    """Upload a cover image for a property."""
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(ALLOWED_IMAGE_TYPES)}",
+        )
+
+    content = await file.read()
+    if len(content) > MAX_IMAGE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 5MB.")
+
+    image_url = persistence.upload_property_image(property_id, content, file.content_type)
+    return ImageUploadResponse(property_id=property_id, image_url=image_url)

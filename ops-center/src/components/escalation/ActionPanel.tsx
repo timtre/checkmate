@@ -1,0 +1,223 @@
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Phone, Unlock, RefreshCw, MessageSquare, Send, CheckCircle, Wifi, ChevronDown } from 'lucide-react';
+import { Escalation, getIntentLabel } from '@/lib/mockData';
+import { cn } from '@/lib/utils';
+
+interface ActionPanelProps {
+  escalation: Escalation;
+}
+
+export function ActionPanel({ escalation }: ActionPanelProps) {
+  const [message, setMessage] = useState('');
+  const [isResolved, setIsResolved] = useState(false);
+  const [showPlaybook, setShowPlaybook] = useState(false);
+
+  const handleAction = (action: string) => {
+    console.log(`Action triggered: ${action}`);
+  };
+
+  const handleSendMessage = () => {
+    if (message.trim()) {
+      console.log('Sending message:', message);
+      setMessage('');
+    }
+  };
+
+  const handleResolve = () => {
+    setIsResolved(true);
+    console.log('Marking as resolved');
+  };
+
+  const renderActionButtons = () => {
+    switch (escalation.intent) {
+      case 'access_issue':
+        return (
+          <div className="space-y-2">
+            <Button
+              size="lg"
+              className="w-full justify-start gap-2 h-11"
+              onClick={() => handleAction('call_guest')}
+            >
+              <Phone className="w-4 h-4" />
+              Call Guest
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 gap-2"
+                onClick={() => handleAction('unlock_door')}
+              >
+                <Unlock className="w-4 h-4" />
+                Unlock
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 gap-2"
+                onClick={() => handleAction('send_new_code')}
+              >
+                <RefreshCw className="w-4 h-4" />
+                New Code
+              </Button>
+            </div>
+          </div>
+        );
+      case 'wifi_issue':
+        return (
+          <div className="space-y-2">
+            <Button
+              size="lg"
+              className="w-full justify-start gap-2 h-11"
+              onClick={() => handleAction('send_hotspot_info')}
+            >
+              <Wifi className="w-4 h-4" />
+              Send Hotspot Info
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => handleAction('call_isp')}
+            >
+              <Phone className="w-4 h-4" />
+              Call ISP
+            </Button>
+          </div>
+        );
+      case 'arrival_navigation':
+        return (
+          <div className="space-y-2">
+            <Button
+              size="lg"
+              className="w-full justify-start gap-2 h-11"
+              onClick={() => handleAction('send_photo')}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Send Entrance Photo
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => handleAction('call_guest')}
+            >
+              <Phone className="w-4 h-4" />
+              Call Guest
+            </Button>
+          </div>
+        );
+      default:
+        return (
+          <Button
+            size="lg"
+            className="w-full justify-start gap-2 h-11"
+            onClick={() => handleAction('message_guest')}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Message Guest
+          </Button>
+        );
+    }
+  };
+
+  const getPlaybookSteps = () => {
+    switch (escalation.intent) {
+      case 'access_issue':
+        return [
+          'Verify guest identity and booking',
+          'Resend access code',
+          'Regenerate new code if still blocked',
+          'Escalate to PM',
+        ];
+      case 'wifi_issue':
+        return [
+          'Confirm network name and password',
+          'Guide through router reset',
+          'Check if multiple devices affected',
+          'Escalate if unresolved',
+        ];
+      case 'arrival_navigation':
+        return [
+          'Send text directions',
+          'Share landmark-based instructions',
+          'Escalate if guest still confused',
+        ];
+      default:
+        return [
+          'Acknowledge issue',
+          'Attempt resolution',
+          'Escalate if needed',
+        ];
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Intent context */}
+      <div>
+        <p className="text-xs text-muted-foreground mb-1">Issue type</p>
+        <p className="text-sm font-medium">{getIntentLabel(escalation.intent)}</p>
+      </div>
+
+      {/* Primary actions */}
+      <div>
+        <p className="text-xs text-muted-foreground mb-2">Recommended</p>
+        {renderActionButtons()}
+      </div>
+
+      {/* Message composer */}
+      <div>
+        <p className="text-xs text-muted-foreground mb-2">Send message</p>
+        <Textarea
+          placeholder="Type a message to the guest..."
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          className="min-h-[80px] resize-none text-sm"
+        />
+        <Button
+          className="w-full mt-2 gap-2"
+          variant="outline"
+          onClick={handleSendMessage}
+          disabled={!message.trim()}
+        >
+          <Send className="w-4 h-4" />
+          Send
+        </Button>
+      </div>
+
+      {/* Resolution */}
+      <Button
+        className={cn(
+          'w-full gap-2',
+          isResolved && 'bg-success hover:bg-success/90 text-success-foreground'
+        )}
+        variant={isResolved ? 'default' : 'outline'}
+        onClick={handleResolve}
+      >
+        <CheckCircle className="w-4 h-4" />
+        {isResolved ? 'Resolved' : 'Mark as Resolved'}
+      </Button>
+
+      {/* Playbook - collapsible */}
+      <div className="pt-4 border-t border-border">
+        <button
+          onClick={() => setShowPlaybook(!showPlaybook)}
+          className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <span>AI Playbook</span>
+          <ChevronDown className={cn('w-4 h-4 transition-transform', showPlaybook && 'rotate-180')} />
+        </button>
+        
+        {showPlaybook && (
+          <ol className="mt-3 space-y-1.5 text-sm text-muted-foreground animate-fade-in">
+            {getPlaybookSteps().map((step, index) => (
+              <li key={index} className="flex items-start gap-2">
+                <span className="text-xs text-muted-foreground/60 w-4">{index + 1}.</span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </div>
+  );
+}

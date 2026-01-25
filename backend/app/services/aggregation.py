@@ -1,6 +1,10 @@
-"""Aggregation service: triggers Tower job and polls Supabase for progress."""
+"""Aggregation service: triggers Tower jobs and polls Supabase for progress.
+
+Demonstrates Tower orchestration: chains insights aggregation with feature engineering.
+"""
 
 import os
+import threading
 import uuid
 from datetime import datetime, timezone
 
@@ -16,6 +20,29 @@ if settings.tower_api_key:
 
 def _get_supabase():
     return create_client(settings.supabase_url, settings.supabase_key)
+
+
+def _chain_features_job(property_id: str, insights_run_result):
+    """Chain the feature engineering job after insights completes.
+
+    This demonstrates Tower orchestration for team collaboration:
+    the pipeline runs insights aggregation, waits for completion,
+    then triggers feature engineering to compute embeddings.
+    """
+    try:
+        # Wait for insights job to complete
+        tower.wait_for_run(insights_run_result)
+        print(f"Tower: Insights job completed, starting feature engineering for {property_id}")
+
+        # Trigger the feature engineering job
+        features_result = tower.run_app(
+            "checkmate-features",
+            parameters={"property_id": property_id},
+        )
+        print(f"Tower: Started checkmate-features job: {features_result}")
+
+    except Exception as e:
+        print(f"Tower: Feature engineering chain failed (non-fatal): {e}")
 
 
 def start_aggregation(property_id: str) -> tuple[bool, str, str]:
@@ -62,6 +89,15 @@ def start_aggregation(property_id: str) -> tuple[bool, str, str]:
         supabase.table("aggregation_runs").update(
             {"tower_run_number": int(tower_run_number), "updated_at": now}
         ).eq("run_id", run_id).execute()
+
+    # Chain feature engineering job in background (non-blocking)
+    # This demonstrates Tower orchestration for team collaboration
+    chain_thread = threading.Thread(
+        target=_chain_features_job,
+        args=(property_id, result),
+        daemon=True,
+    )
+    chain_thread.start()
 
     return True, "Aggregation started", run_id
 

@@ -1,0 +1,218 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* StayMate PM Dashboard Design System
+   Minimal, calm, action-focused operations tool
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    /* Core backgrounds - clean white */
+    --background: 0 0% 99%;
+    --foreground: 220 15% 15%;
+
+    /* Cards & surfaces - minimal */
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 15%;
+
+    /* Brand - Neutral slate for actions */
+    --primary: 220 15% 20%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Very subtle */
+    --secondary: 220 10% 96%;
+    --secondary-foreground: 220 15% 30%;
+
+    /* Muted surfaces */
+    --muted: 220 10% 96%;
+    --muted-foreground: 220 10% 50%;
+
+    /* Accent */
+    --accent: 220 10% 94%;
+    --accent-foreground: 220 15% 20%;
+
+    /* Status colors - Soft pastel palette for calm triage */
+    --critical: 0 72% 51%;
+    --critical-foreground: 0 0% 100%;
+    --critical-muted: 0 50% 97%;
+    --critical-pastel: 0 50% 95%;
+    --critical-pastel-text: 0 60% 40%;
+
+    --high: 25 80% 50%;
+    --high-foreground: 0 0% 100%;
+    --high-muted: 25 50% 97%;
+
+    /* Warning/At Risk - Soft amber pastel */
+    --warning: 38 92% 60%;
+    --warning-pastel: 38 80% 94%;
+    --warning-pastel-text: 38 70% 35%;
+
+    --medium: 45 70% 50%;
+    --medium-foreground: 45 70% 15%;
+    --medium-muted: 45 50% 97%;
+
+    /* Success/Good - Soft sage green pastel */
+    --success: 142 60% 45%;
+    --success-foreground: 0 0% 100%;
+    --success-muted: 142 40% 97%;
+    --success-pastel: 145 45% 92%;
+    --success-pastel-text: 145 50% 30%;
+
+    /* Neutral metric chip */
+    --metric-neutral: 220 15% 95%;
+    --metric-neutral-text: 220 15% 40%;
+
+    /* Destructive */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders - Very subtle */
+    --border: 220 10% 92%;
+    --input: 220 10% 92%;
+    --ring: 220 15% 20%;
+
+    --radius: 0.5rem;
+
+    /* Sidebar - Light, quiet */
+    --sidebar-background: 220 10% 97%;
+    --sidebar-foreground: 220 15% 30%;
+    --sidebar-primary: 220 15% 20%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 10% 94%;
+    --sidebar-accent-foreground: 220 15% 15%;
+    --sidebar-border: 220 10% 92%;
+    --sidebar-ring: 220 15% 20%;
+  }
+
+  .dark {
+    --background: 220 15% 8%;
+    --foreground: 210 10% 90%;
+
+    --card: 220 15% 10%;
+    --card-foreground: 210 10% 90%;
+
+    --popover: 220 15% 10%;
+    --popover-foreground: 210 10% 90%;
+
+    --primary: 210 10% 80%;
+    --primary-foreground: 220 15% 8%;
+
+    --secondary: 220 12% 15%;
+    --secondary-foreground: 210 10% 80%;
+
+    --muted: 220 12% 15%;
+    --muted-foreground: 210 8% 55%;
+
+    --accent: 220 12% 18%;
+    --accent-foreground: 210 10% 90%;
+
+    --critical-muted: 0 50% 12%;
+    --critical-pastel: 0 40% 18%;
+    --critical-pastel-text: 0 60% 70%;
+    
+    --high-muted: 25 50% 12%;
+    
+    --warning-pastel: 38 50% 18%;
+    --warning-pastel-text: 38 70% 65%;
+    
+    --medium-muted: 45 50% 12%;
+    
+    --success-muted: 142 40% 12%;
+    --success-pastel: 145 40% 15%;
+    --success-pastel-text: 145 50% 65%;
+    
+    --metric-neutral: 220 12% 18%;
+    --metric-neutral-text: 220 10% 70%;
+
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 12% 18%;
+    --input: 220 12% 18%;
+    --ring: 210 10% 80%;
+
+    --sidebar-background: 220 15% 6%;
+    --sidebar-foreground: 210 10% 75%;
+    --sidebar-accent: 220 15% 12%;
+    --sidebar-border: 220 12% 15%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Minimal scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/30;
+  }
+}
+
+@layer components {
+  /* Status badge variants - subtle */
+  .badge-critical {
+    @apply bg-critical text-critical-foreground text-xs font-medium;
+  }
+
+  .badge-high {
+    @apply bg-high/15 text-high text-xs font-medium;
+  }
+
+  .badge-medium {
+    @apply bg-medium/15 text-medium text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply bg-success/15 text-success text-xs font-medium;
+  }
+
+  /* Escalation card borders - left accent only */
+  .escalation-critical {
+    @apply border-l-2 border-l-critical;
+  }
+
+  .escalation-high {
+    @apply border-l-2 border-l-high;
+  }
+
+  .escalation-medium {
+    @apply border-l-2 border-l-medium;
+  }
+
+  /* Smooth transitions */
+  .transition-smooth {
+    @apply transition-all duration-150 ease-out;
+  }
+}
+
+@layer utilities {
+  /* Metric number styling - cleaner */
+  .metric-value {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+}

@@ -10,12 +10,16 @@ import { DuringStayPhase } from "@/components/stay/phases/DuringStayPhase";
 import { CheckOutPhase } from "@/components/stay/phases/CheckOutPhase";
 import { PostStayPhase } from "@/components/stay/phases/PostStayPhase";
 
+const DEFAULT_IMAGE_URL =
+  "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&q=80";
+
 interface StayViewProps {
   propertyName: string;
+  propertyImageUrl?: string;
   children?: ReactNode;
 }
 
-export function StayView({ propertyName, children }: StayViewProps) {
+export function StayView({ propertyName, propertyImageUrl, children }: StayViewProps) {
   const [activePhase, setActivePhase] = useState<StayPhase>("arrival");
 
   const renderPhaseContent = () => {
@@ -48,7 +52,7 @@ export function StayView({ propertyName, children }: StayViewProps) {
       >
         <div className="w-full h-80 overflow-hidden">
           <img
-            src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&q=80"
+            src={propertyImageUrl || DEFAULT_IMAGE_URL}
             alt={`${propertyName} property`}
             className="w-full h-full object-cover"
           />

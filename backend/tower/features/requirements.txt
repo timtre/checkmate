@@ -1,0 +1,4 @@
+tower==0.3.43
+supabase==2.27.2
+openai==1.82.0
+pyarrow==18.1.0

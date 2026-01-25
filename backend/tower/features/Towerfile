@@ -1,0 +1,15 @@
+[app]
+name = "checkmate-features"
+script = "./compute_embeddings.py"
+source = [
+    "./**/*.py",
+    "./requirements.txt",
+]
+schedule = ""
+description = "Compute embeddings for question patterns and write to Iceberg table"
+import_paths = []
+
+[[parameters]]
+name = "property_id"
+description = "Property ID to compute embeddings for (empty = all properties)"
+default = ""

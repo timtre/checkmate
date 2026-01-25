@@ -21,7 +21,9 @@
       "mcp__supabase__execute_sql",
       "mcp__tower__tower_file_add_parameter",
       "Bash(npm run lint)",
-      "WebFetch(domain:tower.dev)"
+      "WebFetch(domain:tower.dev)",
+      "mcp__supabase__search_docs",
+      "mcp__supabase__list_tables"
     ]
   }
 }

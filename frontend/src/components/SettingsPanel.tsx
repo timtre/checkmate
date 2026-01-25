@@ -1,20 +1,32 @@
-import { useState } from "react";
-import { Save, Link, Copy, CheckCheck, TriangleAlert } from "lucide-react";
+import { useState, useRef } from "react";
+import { Save, Link, Copy, CheckCheck, TriangleAlert, Upload, ImageIcon } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { updatePropertyName, createToken, type TokenCreateResponse } from "../api";
+import { updatePropertyName, createToken, uploadPropertyImage, type TokenCreateResponse } from "../api";
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
 interface SettingsPanelProps {
   propertyId: string;
   propertyName: string;
+  propertyImageUrl?: string;
   onNameUpdated: (name: string) => void;
+  onImageUpdated?: (imageUrl: string) => void;
   onReset?: () => void;
 }
 
-export default function SettingsPanel({ propertyId, propertyName, onNameUpdated, onReset }: SettingsPanelProps) {
+export default function SettingsPanel({
+  propertyId,
+  propertyName,
+  propertyImageUrl,
+  onNameUpdated,
+  onImageUpdated,
+  onReset,
+}: SettingsPanelProps) {
   const [name, setName] = useState(propertyName);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -24,6 +36,11 @@ export default function SettingsPanel({ propertyId, propertyName, onNameUpdated,
   const [tokenLoading, setTokenLoading] = useState(false);
   const [tokenError, setTokenError] = useState("");
   const [copied, setCopied] = useState(false);
+
+  // Image upload state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageError, setImageError] = useState("");
 
   async function handleSaveName() {
     if (!name.trim()) return;
@@ -70,6 +87,36 @@ export default function SettingsPanel({ propertyId, propertyName, onNameUpdated,
     }
   }
 
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImageError("");
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setImageError("Invalid file type. Please upload a JPEG, PNG, or WebP image.");
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      setImageError("File too large. Maximum size is 5MB.");
+      return;
+    }
+
+    setImageUploading(true);
+    try {
+      const result = await uploadPropertyImage(propertyId, file);
+      onImageUpdated?.(result.image_url);
+    } catch (err) {
+      setImageError(String(err));
+    } finally {
+      setImageUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }
+
   return (
     <div className="space-y-4">
       <Card>
@@ -93,6 +140,60 @@ export default function SettingsPanel({ propertyId, propertyName, onNameUpdated,
               {saving ? "Saving..." : saveSuccess ? "Saved" : "Save"}
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Property Cover Image</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {propertyImageUrl && (
+            <div className="w-full h-48 rounded-lg overflow-hidden bg-muted">
+              <img
+                src={propertyImageUrl}
+                alt="Property cover"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+
+          {!propertyImageUrl && (
+            <div className="w-full h-48 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
+              <div className="text-center text-muted-foreground">
+                <ImageIcon className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No cover image uploaded</p>
+              </div>
+            </div>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleImageUpload}
+            className="hidden"
+          />
+
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={imageUploading}
+            variant="outline"
+            className="w-full"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            {imageUploading ? "Uploading..." : propertyImageUrl ? "Change Image" : "Upload Image"}
+          </Button>
+
+          <p className="text-xs text-muted-foreground">
+            Accepted formats: JPEG, PNG, WebP. Max size: 5MB.
+          </p>
+
+          {imageError && (
+            <Alert variant="destructive">
+              <AlertDescription>{imageError}</AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 

@@ -114,6 +114,7 @@ export async function getDocuments(
 export interface PropertyItem {
   property_id: string;
   name: string;
+  image_url: string;
   conversation_count: number;
 }
 
@@ -155,6 +156,25 @@ export async function updatePropertyName(
     body: JSON.stringify({ name }),
   });
   if (!res.ok) throw new Error(`Update property failed: ${res.status}`);
+  return res.json();
+}
+
+export interface ImageUploadResponse {
+  property_id: string;
+  image_url: string;
+}
+
+export async function uploadPropertyImage(
+  propertyId: string,
+  file: File
+): Promise<ImageUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/image`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) throw new Error(`Image upload failed: ${res.status}`);
   return res.json();
 }
 
@@ -479,4 +499,50 @@ export async function getMessages(
   if (!res.ok) throw new Error(`Messages fetch failed: ${res.status}`);
   const data = await res.json();
   return data.messages;
+}
+
+// ===== Tower Tables & Jobs =====
+
+export interface TowerTable {
+  name: string;
+  namespace: string;
+  record_count: number | null;
+}
+
+export interface TowerTablesResponse {
+  tables: TowerTable[];
+}
+
+export interface TowerTablePreview {
+  table_name: string;
+  namespace: string;
+  total_records: number;
+  preview: Record<string, unknown>[];
+}
+
+export interface TowerJobResponse {
+  status: string;
+  app_name: string;
+  property_id: string;
+  run_number: number | null;
+}
+
+export async function getTowerTables(): Promise<TowerTablesResponse> {
+  const res = await fetch(`${BASE_URL}/tower/tables`);
+  if (!res.ok) throw new Error(`Tower tables fetch failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getTowerTablePreview(tableName: string, limit: number = 10): Promise<TowerTablePreview> {
+  const res = await fetch(`${BASE_URL}/tower/tables/${tableName}?limit=${limit}`);
+  if (!res.ok) throw new Error(`Tower table preview failed: ${res.status}`);
+  return res.json();
+}
+
+export async function triggerFeaturesJob(propertyId: string): Promise<TowerJobResponse> {
+  const res = await fetch(`${BASE_URL}/tower/features/${propertyId}`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`Features job trigger failed: ${res.status}`);
+  return res.json();
 }

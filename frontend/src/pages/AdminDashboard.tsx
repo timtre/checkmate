@@ -30,6 +30,7 @@ import SuggestionsPanel from "../components/SuggestionsPanel";
 import PropertyDocumentEditor from "../components/PropertyDocumentEditor";
 import SettingsPanel from "../components/SettingsPanel";
 import AggregationPanel from "../components/AggregationPanel";
+import TowerPanel from "../components/TowerPanel";
 import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function AdminDashboard() {
@@ -99,6 +100,12 @@ export default function AdminDashboard() {
   function handleNameUpdated(name: string) {
     setProperties((prev) =>
       prev.map((p) => (p.property_id === propertyId ? { ...p, name } : p))
+    );
+  }
+
+  function handleImageUpdated(imageUrl: string) {
+    setProperties((prev) =>
+      prev.map((p) => (p.property_id === propertyId ? { ...p, image_url: imageUrl } : p))
     );
   }
 
@@ -296,6 +303,7 @@ export default function AdminDashboard() {
 
               <TabsContent value="insights" className="space-y-4 mt-4">
                 <AggregationPanel propertyId={propertyId} onComplete={fetchData} />
+                <TowerPanel propertyId={propertyId} />
                 {(insights?.most_asked?.length || insights?.worst_answered?.length) ? (
                   <div className="flex justify-end">
                     <button
@@ -402,7 +410,9 @@ export default function AdminDashboard() {
                 <SettingsPanel
                   propertyId={propertyId}
                   propertyName={propertyName}
+                  propertyImageUrl={currentProperty?.image_url}
                   onNameUpdated={handleNameUpdated}
+                  onImageUpdated={handleImageUpdated}
                   onReset={() => {
                     setConfirmDialog({
                       open: true,

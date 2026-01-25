@@ -70,6 +70,7 @@ export default function GuestApp() {
   // Token validation state
   const [propertyId, setPropertyId] = useState<string | null>(null);
   const [propertyName, setPropertyName] = useState<string>("Your Stay");
+  const [propertyImageUrl, setPropertyImageUrl] = useState<string>("");
   const [guestName, setGuestName] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [validating, setValidating] = useState(true);
@@ -109,10 +110,13 @@ export default function GuestApp() {
         setPropertyId(tokenData.property_id);
         setGuestName(tokenData.guest_name);
 
-        // Fetch property name
+        // Fetch property details
         const property = await getProperty(tokenData.property_id);
         if (property?.name) {
           setPropertyName(property.name);
+        }
+        if (property?.image_url) {
+          setPropertyImageUrl(property.image_url);
         }
 
         // Load existing conversation if any
@@ -258,7 +262,7 @@ export default function GuestApp() {
   // Stay View
   if (activeView === "stay") {
     return (
-      <StayView propertyName={propertyName}>
+      <StayView propertyName={propertyName} propertyImageUrl={propertyImageUrl}>
         <BottomNav activeView={activeView} onViewChange={setActiveView} />
       </StayView>
     );

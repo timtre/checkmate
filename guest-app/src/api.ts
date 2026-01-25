@@ -36,6 +36,7 @@ export interface MessageItem {
 export interface PropertyItem {
   property_id: string;
   name: string;
+  image_url: string;
   conversation_count: number;
 }
 

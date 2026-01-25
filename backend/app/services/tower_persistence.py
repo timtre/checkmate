@@ -337,17 +337,82 @@ class Persistence:
             counts[pid] = counts.get(pid, 0) + 1
 
         # Also include properties from the properties table (even if no conversations)
-        props_result = _get_supabase().table("properties").select("property_id, name").execute()
+        props_result = (
+            _get_supabase().table("properties").select("property_id, name, image_url").execute()
+        )
         names: dict[str, str] = {}
+        image_urls: dict[str, str] = {}
         for row in props_result.data or []:
             names[row["property_id"]] = row["name"]
+            image_urls[row["property_id"]] = row.get("image_url") or ""
             if row["property_id"] not in counts:
                 counts[row["property_id"]] = 0
 
         return [
-            {"property_id": pid, "name": names.get(pid, ""), "conversation_count": count}
+            {
+                "property_id": pid,
+                "name": names.get(pid, ""),
+                "image_url": image_urls.get(pid, ""),
+                "conversation_count": count,
+            }
             for pid, count in sorted(counts.items())
         ]
+
+    def get_property(self, property_id: str) -> dict | None:
+        """Get a single property by ID."""
+        result = (
+            _get_supabase()
+            .table("properties")
+            .select("property_id, name, image_url")
+            .eq("property_id", property_id)
+            .execute()
+        )
+        if result.data:
+            row = result.data[0]
+            return {
+                "property_id": row["property_id"],
+                "name": row.get("name") or "",
+                "image_url": row.get("image_url") or "",
+            }
+        return None
+
+    def upload_property_image(
+        self, property_id: str, file_content: bytes, content_type: str
+    ) -> str:
+        """Upload a property image to storage and save the URL."""
+        ext_map = {
+            "image/jpeg": "jpg",
+            "image/png": "png",
+            "image/webp": "webp",
+        }
+        ext = ext_map.get(content_type, "jpg")
+        file_path = f"{property_id}/cover.{ext}"
+
+        sb = _get_supabase()
+
+        # Delete any existing cover images for this property
+        try:
+            existing = sb.storage.from_("property-images").list(property_id)
+            for f in existing or []:
+                if f.get("name", "").startswith("cover."):
+                    sb.storage.from_("property-images").remove([f"{property_id}/{f['name']}"])
+        except Exception:
+            pass  # Folder may not exist yet
+
+        # Upload the new image
+        sb.storage.from_("property-images").upload(
+            file_path, file_content, {"content-type": content_type, "upsert": "true"}
+        )
+
+        # Get public URL
+        public_url = sb.storage.from_("property-images").get_public_url(file_path)
+
+        # Update properties table
+        sb.table("properties").upsert(
+            {"property_id": property_id, "image_url": public_url}
+        ).execute()
+
+        return public_url
 
     def create_property(self, property_id: str, name: str = "") -> dict:
         """Create a new property entry."""

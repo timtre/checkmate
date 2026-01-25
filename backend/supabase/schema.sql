@@ -37,6 +37,14 @@ create table if not exists guest_tokens (
 create index if not exists guest_tokens_token_idx on guest_tokens (token);
 create index if not exists guest_tokens_property_idx on guest_tokens (property_id);
 
+-- Properties
+create table if not exists properties (
+    property_id text primary key,
+    name text not null default '',
+    image_url text default '',
+    created_at timestamptz default now()
+);
+
 -- Conversations
 create table if not exists conversations (
     conversation_id text primary key,

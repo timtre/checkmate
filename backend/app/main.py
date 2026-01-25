@@ -14,6 +14,7 @@ from app.routers import (
     properties,
     suggestions,
     tokens,
+    tower,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -40,6 +41,7 @@ app.include_router(insights.router)
 app.include_router(properties.router)
 app.include_router(tokens.router)
 app.include_router(suggestions.router)
+app.include_router(tower.router)
 
 
 @app.get("/health")

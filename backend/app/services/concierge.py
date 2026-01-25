@@ -1,13 +1,19 @@
 """AI Concierge service: generates answers using OpenAI + RAG context."""
 
+import os
 import uuid
 
+import numpy as np
 from openai import OpenAI
 
 from app.config import settings
 from app.models.schemas import ChatResponse, Source
 from app.services.knowledge_base import retrieve_context
 from app.services.tower_persistence import persistence
+
+# Tower SDK reads TOWER_API_KEY from os.environ directly
+if settings.tower_api_key:
+    os.environ.setdefault("TOWER_API_KEY", settings.tower_api_key)
 
 _openai_client = None
 
@@ -17,6 +23,64 @@ def _get_openai():
     if _openai_client is None:
         _openai_client = OpenAI(api_key=settings.openai_api_key)
     return _openai_client
+
+
+def _get_similar_patterns_from_tower(query_embedding: list[float], property_id: str) -> list[dict]:
+    """Read pre-computed embeddings from Tower Iceberg table and find similar patterns.
+
+    This demonstrates AI agent data access: the concierge reads pre-computed
+    features from Tower during inference to calibrate response confidence.
+
+    Returns patterns with historical confidence and escalation data.
+    """
+    try:
+        import tower
+
+        # Load pattern embeddings from Iceberg
+        table = tower.tables("pattern_embeddings", namespace="checkmate")
+        df = table.load().to_pandas()
+
+        if df.empty:
+            return []
+
+        # Filter by property
+        df = df[df["property_id"] == property_id]
+        if df.empty:
+            return []
+
+        # Compute cosine similarity
+        query_vec = np.array(query_embedding)
+        similarities = []
+        for _, row in df.iterrows():
+            pattern_vec = np.array(row["embedding"])
+            similarity = np.dot(query_vec, pattern_vec) / (
+                np.linalg.norm(query_vec) * np.linalg.norm(pattern_vec) + 1e-8
+            )
+            similarities.append(
+                {
+                    "pattern_id": row["pattern_id"],
+                    "question_pattern": row["question_pattern"],
+                    "count": row["count"],
+                    "avg_confidence": row["avg_confidence"],
+                    "escalation_count": row["escalation_count"],
+                    "similarity": float(similarity),
+                }
+            )
+
+        # Return top 3 most similar patterns
+        similarities.sort(key=lambda x: x["similarity"], reverse=True)
+        return similarities[:3]
+
+    except Exception as e:
+        # Fail gracefully: Tower table may not exist yet
+        print(f"Tower pattern lookup failed (non-fatal): {e}")
+        return []
+
+
+def _get_query_embedding(query: str) -> list[float]:
+    """Get embedding for a query string."""
+    response = _get_openai().embeddings.create(model="text-embedding-3-small", input=query)
+    return response.data[0].embedding
 
 
 SYSTEM_PROMPT = """You are a warm, attentive property concierge who genuinely cares about each guest's experience. You answer guest questions about the property using the provided context. If the context doesn't contain enough information to answer confidently, say so honestly.
@@ -84,9 +148,19 @@ def generate_response(
     if not context_text:
         context_text = "No property information available."
 
+    # Fetch similar patterns from Tower Iceberg table (for confidence calibration)
+    tower_patterns: list[dict] = []
+    try:
+        query_embedding = _get_query_embedding(guest_message)
+        tower_patterns = _get_similar_patterns_from_tower(query_embedding, property_id)
+        if tower_patterns:
+            print(f"Tower: Found {len(tower_patterns)} similar patterns for confidence calibration")
+    except Exception as e:
+        print(f"Tower lookup skipped (non-fatal): {e}")
+
     # Build conversation history
     history = persistence.get_conversation_messages(conversation_id)
-    messages = _build_messages(property_id, history, guest_message, context_text)
+    messages = _build_messages(property_id, history, guest_message, context_text, tower_patterns)
 
     # Call OpenAI
     response = _get_openai().chat.completions.create(
@@ -133,10 +207,37 @@ def generate_response(
     )
 
 
-def _build_dynamic_prompt(property_id: str) -> str:
-    """Build system prompt augmented with known knowledge gaps for this property."""
+def _build_dynamic_prompt(property_id: str, tower_patterns: list[dict] | None = None) -> str:
+    """Build system prompt augmented with known knowledge gaps for this property.
+
+    Args:
+        property_id: The property ID
+        tower_patterns: Optional list of similar patterns from Tower Iceberg table,
+            containing historical confidence and escalation data
+    """
     prompt = SYSTEM_PROMPT
 
+    # Add Tower pattern insights if available (from Iceberg table)
+    if tower_patterns:
+        similar_with_low_confidence = [
+            p
+            for p in tower_patterns
+            if p.get("similarity", 0) > 0.7 and p.get("avg_confidence", 1.0) < 0.6
+        ]
+        if similar_with_low_confidence:
+            pattern_lines = "\n".join(
+                f"- \"{p['question_pattern']}\" (historical confidence: {p['avg_confidence']:.0%}, "
+                f"escalated {p['escalation_count']} times)"
+                for p in similar_with_low_confidence
+            )
+            prompt += (
+                "\n\nTower Analytics: Similar questions have historically had low confidence. "
+                "Be extra careful with these topics:\n"
+                f"{pattern_lines}\n"
+                "Consider escalating if you cannot provide a confident answer."
+            )
+
+    # Also include Supabase-based gaps (fallback if Tower not available)
     worst = persistence.get_worst_answered(property_id, limit=5)
     gaps = [p for p in worst if p["avg_confidence"] < 0.5 and p["count"] >= 2]
 
@@ -158,9 +259,13 @@ def _build_dynamic_prompt(property_id: str) -> str:
 
 
 def _build_messages(
-    property_id: str, history: list[dict], current_message: str, context: str
+    property_id: str,
+    history: list[dict],
+    current_message: str,
+    context: str,
+    tower_patterns: list[dict] | None = None,
 ) -> list[dict]:
-    messages = [{"role": "system", "content": _build_dynamic_prompt(property_id)}]
+    messages = [{"role": "system", "content": _build_dynamic_prompt(property_id, tower_patterns)}]
 
     # Add recent history (last 10 messages for context window)
     for msg in history[-10:]:
