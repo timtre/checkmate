@@ -151,7 +151,8 @@ export default function GuestApp() {
     const pollInterval = setInterval(async () => {
       try {
         const currentMessages = await getMessages(propertyId, conversationId);
-        if (currentMessages.length > lastMessageCountRef.current) {
+        // Always update if message count changed (handles both additions and corrections)
+        if (currentMessages.length !== lastMessageCountRef.current) {
           setMessages(currentMessages.map(mapBackendMessage));
           lastMessageCountRef.current = currentMessages.length;
         }
