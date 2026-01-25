@@ -1,0 +1,182 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* AI Concierge Design System - Premium Hospitality */
+
+@layer base {
+  :root {
+    /* Pure white background */
+    --background: 0 0% 100%;
+    --foreground: 220 20% 7%;
+
+    /* Card surfaces - pure white */
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 7%;
+
+    /* Popover */
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 7%;
+
+    /* Charcoal primary - near-black */
+    --primary: 220 20% 7%;
+    --primary-foreground: 220 20% 98%;
+
+    /* Cool gray secondary */
+    --secondary: 216 14% 93%;
+    --secondary-foreground: 220 20% 7%;
+
+    /* Muted cool gray */
+    --muted: 216 14% 91%;
+    --muted-foreground: 220 9% 46%;
+
+    /* Muted teal accent */
+    --accent: 177 46% 34%;
+    --accent-foreground: 220 20% 98%;
+
+    /* Muted rust for destructive - rarely used */
+    --destructive: 0 35% 45%;
+    --destructive-foreground: 220 20% 98%;
+
+    /* Borders - subtle cool gray */
+    --border: 216 14% 91%;
+    --input: 216 14% 91%;
+    --ring: 177 46% 34%;
+
+    --radius: 0.75rem;
+
+    /* Chat specific */
+    --chat-guest: 220 20% 7%;
+    --chat-guest-foreground: 220 20% 98%;
+    --chat-ai: 216 14% 96%;
+    
+    /* Status colors - muted, not loud */
+    --success: 158 36% 36%;
+    --success-foreground: 220 20% 98%;
+    --warning: 42 54% 50%;
+    --warning-foreground: 220 20% 7%;
+    --chat-ai-foreground: 220 20% 7%;
+    --chat-system: 216 14% 93%;
+    --chat-system-foreground: 220 9% 46%;
+
+    /* Sidebar */
+    --sidebar-background: 220 20% 98%;
+    --sidebar-foreground: 220 20% 7%;
+    --sidebar-primary: 220 20% 7%;
+    --sidebar-primary-foreground: 220 20% 98%;
+    --sidebar-accent: 216 14% 93%;
+    --sidebar-accent-foreground: 220 20% 7%;
+    --sidebar-border: 216 14% 91%;
+    --sidebar-ring: 177 46% 34%;
+
+    /* Gradients */
+    --gradient-warm: linear-gradient(135deg, hsl(220 20% 98%) 0%, hsl(216 14% 96%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(177 46% 34%) 0%, hsl(177 46% 28%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(220 20% 98%) 0%, hsl(216 14% 96%) 100%);
+
+    /* Shadows - soft, low opacity */
+    --shadow-soft: 0 2px 8px -2px hsl(220 20% 7% / 0.06);
+    --shadow-medium: 0 4px 16px -4px hsl(220 20% 7% / 0.08);
+    --shadow-elevated: 0 8px 32px -8px hsl(220 20% 7% / 0.12);
+  }
+
+  .dark {
+    --background: 220 15% 8%;
+    --foreground: 220 15% 95%;
+
+    --card: 220 15% 10%;
+    --card-foreground: 220 15% 95%;
+
+    --popover: 220 15% 10%;
+    --popover-foreground: 220 15% 95%;
+
+    --primary: 177 40% 45%;
+    --primary-foreground: 220 15% 8%;
+
+    --secondary: 220 15% 15%;
+    --secondary-foreground: 220 15% 90%;
+
+    --muted: 220 15% 15%;
+    --muted-foreground: 220 10% 55%;
+
+    --accent: 177 35% 25%;
+    --accent-foreground: 177 40% 85%;
+
+    --destructive: 0 35% 40%;
+    --destructive-foreground: 220 15% 95%;
+
+    --border: 220 15% 18%;
+    --input: 220 15% 18%;
+    --ring: 177 40% 45%;
+
+    --chat-guest: 177 40% 40%;
+    --chat-guest-foreground: 220 15% 95%;
+    --chat-ai: 220 15% 15%;
+    --chat-ai-foreground: 220 15% 90%;
+    --chat-system: 220 15% 12%;
+    --chat-system-foreground: 220 10% 55%;
+
+    --warning: 42 54% 45%;
+    --warning-foreground: 220 15% 95%;
+
+    --sidebar-background: 220 15% 6%;
+    --sidebar-foreground: 220 15% 90%;
+    --sidebar-primary: 177 40% 45%;
+    --sidebar-primary-foreground: 220 15% 8%;
+    --sidebar-accent: 220 15% 12%;
+    --sidebar-accent-foreground: 220 15% 90%;
+    --sidebar-border: 220 15% 15%;
+    --sidebar-ring: 177 40% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Inter', sans-serif;
+  }
+
+  .font-body {
+    font-family: 'Inter', sans-serif;
+  }
+
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .shadow-medium {
+    box-shadow: var(--shadow-medium);
+  }
+
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .gradient-warm {
+    background: var(--gradient-warm);
+  }
+
+  .gradient-accent {
+    background: var(--gradient-accent);
+  }
+
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+}
