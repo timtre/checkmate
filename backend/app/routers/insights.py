@@ -17,6 +17,7 @@ from app.models.schemas import (
     QuestionInsight,
 )
 from app.services import aggregation
+from app.services.knowledge_base import append_document
 from app.services.tower_persistence import persistence
 
 router = APIRouter(prefix="/properties/{property_id}", tags=["insights"])
@@ -85,8 +86,24 @@ def get_batch_suggestions(property_id: str, status: str | None = None):
 
 
 @router.patch("/batch-suggestions/{suggestion_id}")
-def update_batch_suggestion(suggestion_id: str, body: BatchSuggestionUpdateRequest):
-    """Update a batch suggestion's status (pending/approved/dismissed)."""
+def update_batch_suggestion(
+    property_id: str, suggestion_id: str, body: BatchSuggestionUpdateRequest
+):
+    """Update a batch suggestion's status. If approved, also ingest to KB."""
+    if body.status == "approved":
+        # Get suggestion content to add to knowledge base
+        suggestions = persistence.get_batch_suggestions(property_id)
+        suggestion = next((s for s in suggestions if s["suggestion_id"] == suggestion_id), None)
+
+        if suggestion and suggestion.get("content"):
+            append_document(
+                property_id=property_id,
+                title=suggestion["title"],
+                content=suggestion["content"],
+                category="ai_suggestion",
+                metadata={"source": "batch_suggestion", "suggestion_id": suggestion_id},
+            )
+
     persistence.update_batch_suggestion_status(suggestion_id, body.status)
     return {"suggestion_id": suggestion_id, "status": body.status}
 

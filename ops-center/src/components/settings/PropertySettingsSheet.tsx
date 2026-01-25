@@ -126,7 +126,7 @@ export function PropertySettingsSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-8 space-y-6">
+        <div className="mt-8 space-y-6 overflow-y-auto max-h-[calc(100vh-10rem)] pb-6">
           {/* Property Cover Image */}
           <div className="rounded-lg border p-4 space-y-4">
             <div className="flex items-center gap-2">

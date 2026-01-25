@@ -294,6 +294,7 @@ export function mapBatchSuggestion(item: BatchSuggestion): DocSuggestion {
     id: item.suggestion_id,
     propertyId: item.property_id,
     title: item.title,
+    content: item.content,
     evidence: item.source_patterns,
     impact: item.reasoning,
     status: statusMap[item.status] || 'new',

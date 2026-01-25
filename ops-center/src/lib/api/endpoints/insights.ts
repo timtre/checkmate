@@ -125,8 +125,14 @@ export function useUpdateBatchSuggestion() {
       suggestionId: string;
       status: string;
     }) => updateBatchSuggestion(propertyId, suggestionId, status),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['batch-suggestions'] });
+
+      // If approved, also invalidate KB cache so document list refreshes
+      if (variables.status === 'approved') {
+        queryClient.invalidateQueries({ queryKey: ['knowledge-base', variables.propertyId] });
+        queryClient.invalidateQueries({ queryKey: ['property-document', variables.propertyId] });
+      }
     },
   });
 }

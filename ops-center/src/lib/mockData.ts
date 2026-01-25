@@ -61,6 +61,7 @@ export interface DocSuggestion {
   id: string;
   propertyId: string;
   title: string;
+  content: string;
   evidence: string[];
   impact: string;
   status: 'new' | 'accepted' | 'dismissed';
@@ -229,6 +230,8 @@ export const docSuggestions: DocSuggestion[] = [
     id: 'doc-1',
     propertyId: 'prop-1',
     title: 'Add Wi-Fi router location to house manual',
+    content:
+      'The Wi-Fi router is located in the hallway closet on the second shelf. Network name: Unit3B-Guest, Password: welcome2024. If the connection is unstable, unplug the router for 30 seconds and plug it back in.',
     evidence: ['esc-002', 'Previous chat from 2 days ago'],
     impact: 'Could reduce 15% of Wi-Fi related chats',
     status: 'new',
@@ -238,6 +241,8 @@ export const docSuggestions: DocSuggestion[] = [
     id: 'doc-2',
     propertyId: 'prop-1',
     title: 'Clarify entrance instructions with photos',
+    content:
+      'Use the main entrance facing Alexanderplatz street (glass door with "12" above it). Do NOT use the side door marked "Staff Only". Enter your 4-digit code on the keypad, wait for the green light, then push the door.',
     evidence: ['esc-003', '3 similar escalations this month'],
     impact: 'Could prevent 8% of navigation issues',
     status: 'new',
@@ -247,6 +252,8 @@ export const docSuggestions: DocSuggestion[] = [
     id: 'doc-3',
     propertyId: 'prop-1',
     title: 'Add thermostat location and model info',
+    content:
+      'The thermostat is located on the living room wall, next to the kitchen entrance. To adjust: press the power button, use up/down arrows to set temperature. The heating takes 15-20 minutes to warm up the apartment.',
     evidence: ['esc-005', '5 heating questions last week'],
     impact: 'Could reduce 12% of climate control chats',
     status: 'new',

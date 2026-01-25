@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Check, X, Lightbulb } from 'lucide-react';
-import { DocSuggestion, formatTimeAgo } from '@/lib/mockData';
+import { DocSuggestion } from '@/lib/mockData';
 
 interface DocSuggestionCardProps {
   suggestion: DocSuggestion;
@@ -20,6 +20,16 @@ export function DocSuggestionCard({ suggestion, onAccept, onDismiss }: DocSugges
           Based on {suggestion.evidence.length} related escalations
         </p>
         <p className="text-xs text-success font-medium">{suggestion.impact}</p>
+        {suggestion.content && (
+          <details className="mt-2">
+            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+              Preview content
+            </summary>
+            <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-h-32 whitespace-pre-wrap">
+              {suggestion.content}
+            </pre>
+          </details>
+        )}
       </div>
       <div className="flex items-center gap-1">
         <Button

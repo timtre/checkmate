@@ -62,13 +62,20 @@ const KnowledgeBasePage = () => {
     }
   };
 
-  const handleAccept = (suggestionId: string) => {
+  const handleAccept = async (suggestionId: string) => {
     if (!propertyId) return;
-    updateSuggestion.mutate({
-      propertyId,
-      suggestionId,
-      status: 'approved',
-    });
+
+    setFeedback(null);
+    try {
+      await updateSuggestion.mutateAsync({
+        propertyId,
+        suggestionId,
+        status: 'approved',
+      });
+      setFeedback({ type: 'success', message: 'Suggestion accepted and added to knowledge base.' });
+    } catch {
+      setFeedback({ type: 'error', message: 'Failed to accept suggestion.' });
+    }
   };
 
   const handleDismiss = (suggestionId: string) => {
