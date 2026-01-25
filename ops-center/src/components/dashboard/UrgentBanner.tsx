@@ -1,12 +1,14 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import { Escalation, formatTimeAgo, properties } from '@/lib/mockData';
+import { Escalation, formatTimeAgo } from '@/lib/mockData';
+import { usePropertyScope } from '@/contexts/PropertyScopeContext';
 
 interface UrgentBannerProps {
   escalation: Escalation;
 }
 
 export function UrgentBanner({ escalation }: UrgentBannerProps) {
+  const { properties } = usePropertyScope();
   const property = properties.find(p => p.id === escalation.propertyId);
   const propertyName = property?.name || 'Unknown Property';
 
@@ -20,7 +22,7 @@ export function UrgentBanner({ escalation }: UrgentBannerProps) {
           Urgent: {escalation.summary}
         </p>
         <p className="text-sm opacity-90 truncate">
-          {propertyName} · {escalation.guestName} · {formatTimeAgo(escalation.createdAt)}
+          {propertyName} - {escalation.guestName} - {formatTimeAgo(escalation.createdAt)}
         </p>
       </div>
       <ArrowRight className="w-4 h-4 flex-shrink-0" />

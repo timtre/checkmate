@@ -23,6 +23,15 @@ class Source(BaseModel):
     similarity: float
 
 
+class TowerInsight(BaseModel):
+    """Historical pattern insight from Tower feature engineering."""
+
+    question_pattern: str
+    similarity: float
+    historical_confidence: float
+    escalation_count: int
+
+
 class ChatResponse(BaseModel):
     conversation_id: str
     message_id: str
@@ -31,6 +40,7 @@ class ChatResponse(BaseModel):
     sources: list[Source]
     escalated: bool = False
     escalate_reason: str = "none"
+    tower_insights: list[TowerInsight] = []  # Shows Tower data used for this response
 
 
 # --- Evaluation ---

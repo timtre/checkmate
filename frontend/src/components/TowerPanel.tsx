@@ -96,7 +96,7 @@ export default function TowerPanel({ propertyId }: TowerPanelProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
             <Layers className="h-4 w-4" />
-            Tower Iceberg Tables
+            Tower Feature Tables
           </CardTitle>
           <div className="flex items-center gap-2">
             <Button

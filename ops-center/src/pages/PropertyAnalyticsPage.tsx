@@ -3,12 +3,18 @@ import { AppShell } from '@/components/layout/AppShell';
 import { usePropertyScope } from '@/contexts/PropertyScopeContext';
 import { DocSuggestionCard } from '@/components/dashboard/DocSuggestionCard';
 import {
-  topIntents,
-  topQuestions,
-  docSuggestions,
-  escalations,
+  useEscalations,
+  useBatchSuggestions,
+  useInsights,
+  useTopQuestions,
+  useUpdateBatchSuggestion,
+  deriveIntent,
+  type TopIntentItem,
+} from '@/lib/api';
+import {
   getIntentLabel,
   getIntentIcon,
+  type Intent,
 } from '@/lib/mockData';
 import {
   Table,
@@ -18,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Building2 } from 'lucide-react';
+import { Building2, Loader2 } from 'lucide-react';
 
 const PropertyAnalyticsPage = () => {
   const { scope, selectedProperty } = usePropertyScope();
@@ -28,14 +34,69 @@ const PropertyAnalyticsPage = () => {
     return <Navigate to="/analytics" replace />;
   }
 
-  // Filter data for this property
-  const propertyEscalations = escalations.filter(e => e.propertyId === selectedProperty.id);
-  const propertySuggestions = docSuggestions.filter(s => s.propertyId === selectedProperty.id);
-  
+  // Fetch data from API
+  const { data: propertyEscalations = [], isLoading: escalationsLoading } = useEscalations(selectedProperty.id);
+  const { data: propertySuggestions = [], isLoading: suggestionsLoading } = useBatchSuggestions(selectedProperty.id);
+  const { data: insights, isLoading: insightsLoading } = useInsights(selectedProperty.id);
+  const { data: topQuestions = [], isLoading: questionsLoading } = useTopQuestions(selectedProperty.id);
+
+  const updateSuggestion = useUpdateBatchSuggestion();
+
+  const isLoading = escalationsLoading || suggestionsLoading || insightsLoading || questionsLoading;
+
+  // Calculate resolution stats
   const resolvedCount = propertyEscalations.filter(e => e.status === 'resolved' || e.status === 'closed').length;
-  const resolvedByAI = propertyEscalations.length > 0 
-    ? Math.round((resolvedCount / propertyEscalations.length) * 100) 
-    : 87; // Fallback for demo
+  const totalConversations = insights?.total_conversations || 1;
+  const totalEscalations = propertyEscalations.length;
+  const resolvedByAI = totalConversations > 0
+    ? Math.round(((totalConversations - totalEscalations) / totalConversations) * 100)
+    : 100;
+
+  // Calculate top intents from escalations
+  const intentCounts = new Map<Intent, number>();
+  for (const esc of propertyEscalations) {
+    // Get the guest message from timeline if available
+    const guestMessage = esc.timeline.find(t => t.type === 'guest_message')?.content || '';
+    const intent = deriveIntent(guestMessage);
+    intentCounts.set(intent, (intentCounts.get(intent) || 0) + 1);
+  }
+
+  const topIntents: TopIntentItem[] = Array.from(intentCounts.entries())
+    .map(([intent, count]) => ({
+      intent,
+      count,
+      percentage: propertyEscalations.length > 0
+        ? Math.round((count / propertyEscalations.length) * 100)
+        : 0,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  const handleAccept = (suggestionId: string) => {
+    updateSuggestion.mutate({
+      propertyId: selectedProperty.id,
+      suggestionId,
+      status: 'approved',
+    });
+  };
+
+  const handleDismiss = (suggestionId: string) => {
+    updateSuggestion.mutate({
+      propertyId: selectedProperty.id,
+      suggestionId,
+      status: 'dismissed',
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -55,28 +116,32 @@ const PropertyAnalyticsPage = () => {
           {/* Top Intents for this property */}
           <div className="bg-card rounded-xl border border-border p-6">
             <h3 className="font-semibold text-foreground mb-6">Issue Types at This Property</h3>
-            <div className="space-y-4">
-              {topIntents.map((item, index) => (
-                <div key={item.intent} className="flex items-center gap-4">
-                  <span className="w-6 text-center text-lg">{getIntentIcon(item.intent as any)}</span>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between text-sm mb-1">
-                      <span className="text-foreground font-medium">{getIntentLabel(item.intent as any)}</span>
-                      <span className="text-muted-foreground">{item.count} ({item.percentage}%)</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${item.percentage}%`,
-                          backgroundColor: index === 0 ? 'hsl(var(--critical))' : index === 1 ? 'hsl(var(--high))' : 'hsl(var(--primary))'
-                        }}
-                      />
+            {topIntents.length > 0 ? (
+              <div className="space-y-4">
+                {topIntents.map((item, index) => (
+                  <div key={item.intent} className="flex items-center gap-4">
+                    <span className="w-6 text-center text-lg">{getIntentIcon(item.intent)}</span>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="text-foreground font-medium">{getIntentLabel(item.intent)}</span>
+                        <span className="text-muted-foreground">{item.count} ({item.percentage}%)</span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${item.percentage}%`,
+                            backgroundColor: index === 0 ? 'hsl(var(--critical))' : index === 1 ? 'hsl(var(--high))' : 'hsl(var(--primary))'
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No escalation data yet</p>
+            )}
           </div>
 
           {/* Resolution stats for this property */}
@@ -92,12 +157,12 @@ const PropertyAnalyticsPage = () => {
                 <p className="text-sm text-muted-foreground">Needed Human</p>
               </div>
               <div className="text-center p-4 bg-muted rounded-xl">
-                <p className="text-4xl font-bold text-foreground mb-1">1.8m</p>
-                <p className="text-sm text-muted-foreground">Avg. Response</p>
+                <p className="text-4xl font-bold text-foreground mb-1">{insights?.total_conversations || 0}</p>
+                <p className="text-sm text-muted-foreground">Conversations</p>
               </div>
               <div className="text-center p-4 bg-muted rounded-xl">
-                <p className="text-4xl font-bold text-foreground mb-1">4.5★</p>
-                <p className="text-sm text-muted-foreground">Guest Rating</p>
+                <p className="text-4xl font-bold text-foreground mb-1">{totalEscalations}</p>
+                <p className="text-sm text-muted-foreground">Escalations</p>
               </div>
             </div>
           </div>
@@ -109,33 +174,37 @@ const PropertyAnalyticsPage = () => {
           <p className="text-sm text-muted-foreground mb-4">
             Most common guest questions at {selectedProperty.name}
           </p>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Question</TableHead>
-                <TableHead className="w-24 text-right">Asked</TableHead>
-                <TableHead className="w-24 text-right">Resolved</TableHead>
-                <TableHead className="w-32 text-right">Resolution Rate</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {topQuestions.map((item) => {
-                const rate = Math.round((item.resolved / item.count) * 100);
-                return (
-                  <TableRow key={item.question}>
-                    <TableCell className="font-medium">{item.question}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{item.count}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{item.resolved}</TableCell>
-                    <TableCell className="text-right">
-                      <span className={rate >= 90 ? 'text-success' : rate >= 70 ? 'text-high' : 'text-critical'}>
-                        {rate}%
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          {topQuestions.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Question</TableHead>
+                  <TableHead className="w-24 text-right">Asked</TableHead>
+                  <TableHead className="w-24 text-right">Resolved</TableHead>
+                  <TableHead className="w-32 text-right">Resolution Rate</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {topQuestions.map((item) => {
+                  const rate = item.count > 0 ? Math.round((item.resolved / item.count) * 100) : 0;
+                  return (
+                    <TableRow key={item.question}>
+                      <TableCell className="font-medium">{item.question}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{item.count}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{item.resolved}</TableCell>
+                      <TableCell className="text-right">
+                        <span className={rate >= 90 ? 'text-success' : rate >= 70 ? 'text-high' : 'text-critical'}>
+                          {rate}%
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="text-sm text-muted-foreground">No question patterns recorded yet. Run the aggregation pipeline to generate insights.</p>
+          )}
         </div>
 
         {/* Documentation Improvements for this property */}
@@ -155,8 +224,8 @@ const PropertyAnalyticsPage = () => {
                 <DocSuggestionCard
                   key={suggestion.id}
                   suggestion={suggestion}
-                  onAccept={() => console.log('Accept', suggestion.id)}
-                  onDismiss={() => console.log('Dismiss', suggestion.id)}
+                  onAccept={() => handleAccept(suggestion.id)}
+                  onDismiss={() => handleDismiss(suggestion.id)}
                 />
               ))
             ) : (

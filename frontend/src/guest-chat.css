@@ -306,3 +306,54 @@
     opacity: 1;
   }
 }
+
+/* ===== Tower Debug Panel ===== */
+.tower-debug {
+  margin-top: 8px;
+  margin-left: 0;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+  border-radius: 12px;
+  font-size: 12px;
+  max-width: 80%;
+  color: #fff;
+}
+
+.tower-debug-header {
+  font-weight: 600;
+  color: #7dd3fc;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tower-debug-header::before {
+  content: "Tower";
+  font-size: 10px;
+  background: #0ea5e9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #fff;
+}
+
+.tower-debug-item {
+  padding: 6px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tower-debug-item:first-of-type {
+  border-top: none;
+}
+
+.tower-pattern {
+  display: block;
+  color: #e0f2fe;
+  font-style: italic;
+  margin-bottom: 2px;
+}
+
+.tower-stats {
+  color: #94a3b8;
+  font-size: 11px;
+}

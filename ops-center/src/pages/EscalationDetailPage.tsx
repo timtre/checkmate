@@ -3,26 +3,49 @@ import { AppShell } from '@/components/layout/AppShell';
 import { EscalationTimeline } from '@/components/escalation/EscalationTimeline';
 import { ActionPanel } from '@/components/escalation/ActionPanel';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
+import { usePropertyScope } from '@/contexts/PropertyScopeContext';
+import { useEscalationDetailFromAll } from '@/lib/api';
 import {
-  escalations,
   getIntentLabel,
   getPriorityLabel,
   formatTimeAgo,
-  properties,
 } from '@/lib/mockData';
 import { cn } from '@/lib/utils';
 
 const EscalationDetailPage = () => {
   const { id } = useParams();
-  const escalation = escalations.find((e) => e.id === id);
+  const { properties } = usePropertyScope();
 
-  if (!escalation) {
+  // Search across all properties to find the escalation
+  const propertyIds = properties.map((p) => p.id);
+
+  const { data: escalation, isLoading, error } = useEscalationDetailFromAll(propertyIds, id || null);
+
+  // Find property name
+  const property = escalation
+    ? properties.find((p) => p.id === escalation.propertyId)
+    : null;
+  const propertyName = property?.name || 'Unknown Property';
+
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (error || !escalation) {
     return (
       <AppShell>
         <div className="flex flex-col items-center justify-center py-16">
           <h1 className="text-lg font-medium mb-2">Escalation not found</h1>
-          <p className="text-sm text-muted-foreground mb-4">The escalation you're looking for doesn't exist.</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            {error ? (error as Error).message : "The escalation you're looking for doesn't exist."}
+          </p>
           <Link to="/escalations">
             <Button variant="outline" size="sm">Back to Escalations</Button>
           </Link>
@@ -30,9 +53,6 @@ const EscalationDetailPage = () => {
       </AppShell>
     );
   }
-
-  const property = properties.find(p => p.id === escalation.propertyId);
-  const propertyName = property?.name || 'Unknown Property';
 
   const priorityStyles = {
     critical: 'text-critical',
@@ -59,7 +79,7 @@ const EscalationDetailPage = () => {
               {getPriorityLabel(escalation.priority)}
             </span>
           </div>
-          
+
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
             <span>{propertyName}</span>
             <span>·</span>

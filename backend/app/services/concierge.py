@@ -1,21 +1,18 @@
 """AI Concierge service: generates answers using OpenAI + RAG context."""
 
-import os
 import uuid
 
 import numpy as np
 from openai import OpenAI
+from supabase import create_client
 
 from app.config import settings
-from app.models.schemas import ChatResponse, Source
+from app.models.schemas import ChatResponse, Source, TowerInsight
 from app.services.knowledge_base import retrieve_context
 from app.services.tower_persistence import persistence
 
-# Tower SDK reads TOWER_API_KEY from os.environ directly
-if settings.tower_api_key:
-    os.environ.setdefault("TOWER_API_KEY", settings.tower_api_key)
-
 _openai_client = None
+_supabase_client = None
 
 
 def _get_openai():
@@ -25,34 +22,43 @@ def _get_openai():
     return _openai_client
 
 
+def _get_supabase():
+    global _supabase_client
+    if _supabase_client is None:
+        _supabase_client = create_client(settings.supabase_url, settings.supabase_key)
+    return _supabase_client
+
+
 def _get_similar_patterns_from_tower(query_embedding: list[float], property_id: str) -> list[dict]:
-    """Read pre-computed embeddings from Tower Iceberg table and find similar patterns.
+    """Read pre-computed embeddings from Supabase and find similar patterns.
 
     This demonstrates AI agent data access: the concierge reads pre-computed
-    features from Tower during inference to calibrate response confidence.
+    features (computed by Tower job) during inference to calibrate response confidence.
 
     Returns patterns with historical confidence and escalation data.
     """
     try:
-        import tower
+        supabase = _get_supabase()
 
-        # Load pattern embeddings from Iceberg
-        table = tower.tables("pattern_embeddings", namespace="checkmate")
-        df = table.load().to_pandas()
+        # Fetch pattern embeddings for this property
+        result = (
+            supabase.table("pattern_embeddings")
+            .select("*")
+            .eq("property_id", property_id)
+            .execute()
+        )
 
-        if df.empty:
-            return []
-
-        # Filter by property
-        df = df[df["property_id"] == property_id]
-        if df.empty:
+        if not result.data:
             return []
 
         # Compute cosine similarity
         query_vec = np.array(query_embedding)
         similarities = []
-        for _, row in df.iterrows():
-            pattern_vec = np.array(row["embedding"])
+        for row in result.data:
+            embedding = row.get("embedding")
+            if not embedding:
+                continue
+            pattern_vec = np.array(embedding)
             similarity = np.dot(query_vec, pattern_vec) / (
                 np.linalg.norm(query_vec) * np.linalg.norm(pattern_vec) + 1e-8
             )
@@ -72,8 +78,8 @@ def _get_similar_patterns_from_tower(query_embedding: list[float], property_id: 
         return similarities[:3]
 
     except Exception as e:
-        # Fail gracefully: Tower table may not exist yet
-        print(f"Tower pattern lookup failed (non-fatal): {e}")
+        # Fail gracefully: table may not have data yet
+        print(f"Pattern embedding lookup failed (non-fatal): {e}")
         return []
 
 
@@ -196,6 +202,18 @@ def generate_response(
         escalated=escalate,
     )
 
+    # Convert tower patterns to TowerInsight objects for response
+    tower_insights = [
+        TowerInsight(
+            question_pattern=p["question_pattern"],
+            similarity=round(p["similarity"], 3),
+            historical_confidence=round(p["avg_confidence"], 3),
+            escalation_count=p["escalation_count"],
+        )
+        for p in tower_patterns
+        if p.get("similarity", 0) > 0.5  # Only include reasonably similar patterns
+    ]
+
     return ChatResponse(
         conversation_id=conversation_id,
         message_id=assistant_message_id,
@@ -204,6 +222,7 @@ def generate_response(
         sources=sources,
         escalated=escalate,
         escalate_reason=escalate_reason,
+        tower_insights=tower_insights,
     )
 
 

@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Property, properties, escalations } from '@/lib/mockData';
+import { Property } from '@/lib/mockData';
 import { usePropertyScope } from '@/contexts/PropertyScopeContext';
+import { useAllEscalations, useAllInsights } from '@/lib/api';
 import {
   Table,
   TableBody,
@@ -10,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Loader2 } from 'lucide-react';
 
 type SentimentStatus = 'good' | 'at-risk' | 'needs-attention';
 
@@ -18,45 +20,9 @@ interface PropertyHealth {
   sentiment: SentimentStatus;
   sentimentLabel: string;
   frictionRate: number;
-  frictionTrend: 'up' | 'down' | 'stable';
   humanInterventionRate: number;
   autoReplyRate: number;
 }
-
-// Generate mock health data for properties
-const generatePropertyHealth = (): PropertyHealth[] => {
-  return properties.map((property) => {
-    const propertyEscalations = escalations.filter(
-      (e) => e.propertyId === property.id
-    );
-    const criticalCount = propertyEscalations.filter(
-      (e) => e.priority === 'critical' && e.status === 'open'
-    ).length;
-    const unhappyCount = propertyEscalations.filter(
-      (e) => e.satisfactionSignal === 'unhappy' && e.status === 'open'
-    ).length;
-
-    let sentiment: SentimentStatus = 'good';
-    let sentimentLabel = 'Good';
-    if (criticalCount > 0 || unhappyCount > 1) {
-      sentiment = 'needs-attention';
-      sentimentLabel = 'Needs Attention';
-    } else if (unhappyCount > 0) {
-      sentiment = 'at-risk';
-      sentimentLabel = 'At Risk';
-    }
-
-    return {
-      property,
-      sentiment,
-      sentimentLabel,
-      frictionRate: Math.floor(Math.random() * 15) + 3,
-      frictionTrend: ['up', 'down', 'stable'][Math.floor(Math.random() * 3)] as 'up' | 'down' | 'stable',
-      humanInterventionRate: Math.floor(Math.random() * 20) + 5,
-      autoReplyRate: Math.floor(Math.random() * 20) + 75,
-    };
-  });
-};
 
 const sentimentStyles: Record<SentimentStatus, { bg: string; text: string; dot: string }> = {
   'good': {
@@ -76,31 +42,21 @@ const sentimentStyles: Record<SentimentStatus, { bg: string; text: string; dot: 
   },
 };
 
-const MetricChip = ({ 
-  value, 
-  showTrend, 
-  trend 
-}: { 
-  value: number; 
-  showTrend?: boolean; 
-  trend?: 'up' | 'down' | 'stable';
+const MetricChip = ({
+  value,
+}: {
+  value: number;
 }) => {
-  const trendArrow = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '';
-  const trendColor = trend === 'up' ? 'text-[hsl(var(--critical-pastel-text))]' : 'text-[hsl(var(--success-pastel-text))]';
-  
   return (
     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[hsl(var(--metric-neutral))] text-[hsl(var(--metric-neutral-text))] text-sm font-medium">
       {value}%
-      {showTrend && trend && trend !== 'stable' && (
-        <span className={cn('text-xs', trendColor)}>{trendArrow}</span>
-      )}
     </span>
   );
 };
 
 const SentimentBadge = ({ status, label }: { status: SentimentStatus; label: string }) => {
   const styles = sentimentStyles[status];
-  
+
   return (
     <span className={cn(
       'inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium',
@@ -115,7 +71,64 @@ const SentimentBadge = ({ status, label }: { status: SentimentStatus; label: str
 
 export const PropertyHealthTable = () => {
   const navigate = useNavigate();
-  const { selectProperty } = usePropertyScope();
+  const { selectProperty, properties } = usePropertyScope();
+
+  const propertyIds = properties.map((p) => p.id);
+
+  // Fetch escalations from API
+  const { data: escalations = [], isLoading: escalationsLoading } = useAllEscalations(propertyIds);
+
+  // Fetch insights from API
+  const { data: insights, isLoading: insightsLoading } = useAllInsights(propertyIds);
+
+  const isLoading = escalationsLoading || insightsLoading;
+
+  // Generate health data from API data
+  const generatePropertyHealth = (): PropertyHealth[] => {
+    return properties.map((property) => {
+      const propertyEscalations = escalations.filter(
+        (e) => e.propertyId === property.id
+      );
+      const criticalCount = propertyEscalations.filter(
+        (e) => e.priority === 'critical' && e.status === 'open'
+      ).length;
+      const unhappyCount = propertyEscalations.filter(
+        (e) => e.satisfactionSignal === 'unhappy' && e.status === 'open'
+      ).length;
+      const openCount = propertyEscalations.filter(
+        (e) => e.status === 'open'
+      ).length;
+
+      let sentiment: SentimentStatus = 'good';
+      let sentimentLabel = 'Good';
+      if (criticalCount > 0 || unhappyCount > 1) {
+        sentiment = 'needs-attention';
+        sentimentLabel = 'Needs Attention';
+      } else if (unhappyCount > 0 || openCount > 2) {
+        sentiment = 'at-risk';
+        sentimentLabel = 'At Risk';
+      }
+
+      // Calculate rates from insights
+      const totalConversations = insights?.total_conversations || 1;
+      const totalEscalations = propertyEscalations.length;
+      const humanInterventionRate = totalConversations > 0
+        ? Math.round((totalEscalations / totalConversations) * 100)
+        : 0;
+      const autoReplyRate = 100 - humanInterventionRate;
+      const frictionRate = Math.min(humanInterventionRate, 100);
+
+      return {
+        property,
+        sentiment,
+        sentimentLabel,
+        frictionRate,
+        humanInterventionRate,
+        autoReplyRate,
+      };
+    });
+  };
+
   const healthData = generatePropertyHealth().sort((a, b) => {
     // Sort by sentiment severity
     const severityOrder: Record<SentimentStatus, number> = {
@@ -136,6 +149,40 @@ export const PropertyHealthTable = () => {
     navigate(`/property/${property.id}`);
   };
 
+  if (isLoading) {
+    return (
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">
+            Property Health — Right Now
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Based on live guest conversations during ongoing stays
+          </p>
+        </div>
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </div>
+      </section>
+    );
+  }
+
+  if (properties.length === 0) {
+    return (
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">
+            Property Health — Right Now
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Based on live guest conversations during ongoing stays
+          </p>
+        </div>
+        <p className="text-sm text-muted-foreground py-4">No properties found</p>
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-4">
       {/* Header */}
@@ -151,7 +198,7 @@ export const PropertyHealthTable = () => {
       {/* Calm state message */}
       {allHealthy && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-[hsl(var(--success-pastel))] text-[hsl(var(--success-pastel-text))]">
-          <span>All properties are running smoothly today 😊</span>
+          <span>All properties are running smoothly today</span>
         </div>
       )}
 
@@ -195,7 +242,7 @@ export const PropertyHealthTable = () => {
                       </p>
                     </div>
                     <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                      Review property →
+                      Review property
                     </span>
                   </div>
                 </TableCell>
@@ -203,11 +250,7 @@ export const PropertyHealthTable = () => {
                   <SentimentBadge status={row.sentiment} label={row.sentimentLabel} />
                 </TableCell>
                 <TableCell className="py-4 text-center">
-                  <MetricChip 
-                    value={row.frictionRate} 
-                    showTrend 
-                    trend={row.frictionTrend} 
-                  />
+                  <MetricChip value={row.frictionRate} />
                 </TableCell>
                 <TableCell className="py-4 text-center">
                   <MetricChip value={row.humanInterventionRate} />

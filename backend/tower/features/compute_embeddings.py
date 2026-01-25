@@ -1,35 +1,20 @@
 """Tower batch pipeline: compute embeddings for question patterns.
 
 Reads question patterns from Supabase, computes embeddings via OpenAI,
-and writes results to a Tower Iceberg table for AI agent consumption.
+and writes results back to Supabase for AI agent consumption.
 
 This demonstrates:
 1. Feature engineering - computing ML features (embeddings)
-2. Data access to AI agents - storing pre-computed features in Iceberg
+2. Data access to AI agents - storing pre-computed features for inference
 3. Team collaboration - chained via orchestration from insights job
 """
 
 import os
 from datetime import datetime, timezone
 
-import pyarrow as pa
 import tower
 from openai import OpenAI
 from supabase import create_client
-
-# PyArrow schema for the pattern embeddings table
-EMBEDDING_SCHEMA = pa.schema(
-    [
-        ("pattern_id", pa.string()),
-        ("property_id", pa.string()),
-        ("question_pattern", pa.string()),
-        ("count", pa.int64()),
-        ("avg_confidence", pa.float64()),
-        ("escalation_count", pa.int64()),
-        ("embedding", pa.list_(pa.float32(), 1536)),  # text-embedding-3-small dimension
-        ("computed_at", pa.string()),
-    ]
-)
 
 
 def main():
@@ -53,7 +38,7 @@ def main():
 
     # Compute embeddings for each pattern
     now = datetime.now(timezone.utc).isoformat()
-    embeddings_records = []
+    success_count = 0
 
     for i, row in enumerate(patterns_data):
         pattern_text = row.get("question_pattern", "")
@@ -66,18 +51,20 @@ def main():
             )
             embedding = response.data[0].embedding
 
-            embeddings_records.append(
-                {
-                    "pattern_id": row["pattern_id"],
-                    "property_id": row["property_id"],
-                    "question_pattern": pattern_text,
-                    "count": row.get("count", 1),
-                    "avg_confidence": row.get("avg_confidence", 0.5),
-                    "escalation_count": row.get("escalation_count", 0),
-                    "embedding": embedding,
-                    "computed_at": now,
-                }
-            )
+            # Upsert to pattern_embeddings table in Supabase
+            record = {
+                "pattern_id": row["pattern_id"],
+                "property_id": row["property_id"],
+                "question_pattern": pattern_text,
+                "count": row.get("count", 1),
+                "avg_confidence": row.get("avg_confidence", 0.5),
+                "escalation_count": row.get("escalation_count", 0),
+                "embedding": embedding,
+                "computed_at": now,
+            }
+
+            supabase.table("pattern_embeddings").upsert(record).execute()
+            success_count += 1
 
             if (i + 1) % 10 == 0 or i == len(patterns_data) - 1:
                 print(f"Computed embeddings: {i + 1}/{len(patterns_data)}")
@@ -86,32 +73,7 @@ def main():
             print(f"Failed to compute embedding for pattern '{pattern_text[:50]}...': {e}")
             continue
 
-    if not embeddings_records:
-        print("No embeddings computed, nothing to write")
-        return
-
-    # Convert to PyArrow table
-    print(f"Writing {len(embeddings_records)} embeddings to Iceberg table...")
-
-    # Build columns for PyArrow table
-    pa_table = pa.Table.from_pydict(
-        {
-            "pattern_id": [r["pattern_id"] for r in embeddings_records],
-            "property_id": [r["property_id"] for r in embeddings_records],
-            "question_pattern": [r["question_pattern"] for r in embeddings_records],
-            "count": [r["count"] for r in embeddings_records],
-            "avg_confidence": [r["avg_confidence"] for r in embeddings_records],
-            "escalation_count": [r["escalation_count"] for r in embeddings_records],
-            "embedding": [r["embedding"] for r in embeddings_records],
-            "computed_at": [r["computed_at"] for r in embeddings_records],
-        },
-        schema=EMBEDDING_SCHEMA,
-    )
-
-    # Write to Tower Iceberg table (overwrites for simplicity)
-    tower.tables("pattern_embeddings", namespace="checkmate").insert(pa_table)
-
-    print(f"Successfully wrote {len(embeddings_records)} pattern embeddings to Iceberg")
+    print(f"Successfully wrote {success_count} pattern embeddings to Supabase")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { useParams } from "react-router-dom";
-import { validateToken, sendMessage, getMessages, type ChatResponse } from "../api";
+import { useParams, useSearchParams } from "react-router-dom";
+import { validateToken, sendMessage, getMessages, type ChatResponse, type TowerInsight } from "../api";
 import MessageBubble from "../components/MessageBubble";
 import "../guest-chat.css";
 
@@ -9,10 +9,13 @@ interface Message {
   text: string;
   timestamp?: string;
   escalated?: boolean;
+  towerInsights?: TowerInsight[];
 }
 
 export default function GuestChatView() {
   const { token } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
+  const debugMode = searchParams.get("debug") === "true";
   const [propertyId, setPropertyId] = useState<string | null>(null);
   const [guestName, setGuestName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +102,10 @@ export default function GuestChatView() {
         guestName || undefined
       );
       setConversationId(res.conversation_id);
+      // Log Tower insights to console for debugging
+      if (res.tower_insights?.length > 0) {
+        console.log("Tower Insights for this response:", res.tower_insights);
+      }
       setMessages((prev) => [
         ...prev,
         {
@@ -106,6 +113,7 @@ export default function GuestChatView() {
           text: res.answer,
           timestamp: new Date().toISOString(),
           escalated: res.escalated,
+          towerInsights: res.tower_insights,
         },
       ]);
     } catch (err) {
@@ -144,7 +152,24 @@ export default function GuestChatView() {
           </div>
         )}
         {messages.map((msg, i) => (
-          <MessageBubble key={i} {...msg} />
+          <div key={i}>
+            <MessageBubble {...msg} />
+            {debugMode && msg.towerInsights && msg.towerInsights.length > 0 && (
+              <div className="tower-debug">
+                <div className="tower-debug-header">Tower Insights (similar patterns)</div>
+                {msg.towerInsights.map((insight, j) => (
+                  <div key={j} className="tower-debug-item">
+                    <span className="tower-pattern">"{insight.question_pattern}"</span>
+                    <span className="tower-stats">
+                      {Math.round(insight.similarity * 100)}% similar |
+                      {Math.round(insight.historical_confidence * 100)}% historical confidence |
+                      {insight.escalation_count} escalations
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         ))}
         {loading && (
           <div className="typing-indicator">

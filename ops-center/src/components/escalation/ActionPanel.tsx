@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Phone, Unlock, RefreshCw, MessageSquare, Send, CheckCircle, Wifi, ChevronDown } from 'lucide-react';
+import { Phone, Unlock, RefreshCw, MessageSquare, Send, CheckCircle, Wifi, ChevronDown, Loader2 } from 'lucide-react';
 import { Escalation, getIntentLabel } from '@/lib/mockData';
+import { useReplyToEscalation } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface ActionPanelProps {
   escalation: Escalation;
@@ -11,23 +13,58 @@ interface ActionPanelProps {
 
 export function ActionPanel({ escalation }: ActionPanelProps) {
   const [message, setMessage] = useState('');
-  const [isResolved, setIsResolved] = useState(false);
+  const [isResolved, setIsResolved] = useState(escalation.status === 'resolved');
   const [showPlaybook, setShowPlaybook] = useState(false);
+
+  const replyMutation = useReplyToEscalation();
 
   const handleAction = (action: string) => {
     console.log(`Action triggered: ${action}`);
+    toast.info(`Action: ${action}`);
   };
 
   const handleSendMessage = () => {
     if (message.trim()) {
-      console.log('Sending message:', message);
-      setMessage('');
+      replyMutation.mutate(
+        {
+          escalationId: escalation.id,
+          replyText: message,
+          repliedBy: 'property_manager',
+        },
+        {
+          onSuccess: () => {
+            toast.success('Message sent to guest');
+            setMessage('');
+            setIsResolved(true);
+          },
+          onError: (error) => {
+            toast.error(`Failed to send message: ${error.message}`);
+          },
+        }
+      );
     }
   };
 
   const handleResolve = () => {
-    setIsResolved(true);
-    console.log('Marking as resolved');
+    if (!isResolved) {
+      // Send an empty reply to mark as resolved
+      replyMutation.mutate(
+        {
+          escalationId: escalation.id,
+          replyText: '[Resolved without additional message]',
+          repliedBy: 'property_manager',
+        },
+        {
+          onSuccess: () => {
+            setIsResolved(true);
+            toast.success('Escalation marked as resolved');
+          },
+          onError: (error) => {
+            toast.error(`Failed to resolve: ${error.message}`);
+          },
+        }
+      );
+    }
   };
 
   const renderActionButtons = () => {
@@ -172,15 +209,20 @@ export function ActionPanel({ escalation }: ActionPanelProps) {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           className="min-h-[80px] resize-none text-sm"
+          disabled={replyMutation.isPending}
         />
         <Button
           className="w-full mt-2 gap-2"
           variant="outline"
           onClick={handleSendMessage}
-          disabled={!message.trim()}
+          disabled={!message.trim() || replyMutation.isPending}
         >
-          <Send className="w-4 h-4" />
-          Send
+          {replyMutation.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Send className="w-4 h-4" />
+          )}
+          {replyMutation.isPending ? 'Sending...' : 'Send'}
         </Button>
       </div>
 
@@ -192,8 +234,13 @@ export function ActionPanel({ escalation }: ActionPanelProps) {
         )}
         variant={isResolved ? 'default' : 'outline'}
         onClick={handleResolve}
+        disabled={isResolved || replyMutation.isPending}
       >
-        <CheckCircle className="w-4 h-4" />
+        {replyMutation.isPending ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <CheckCircle className="w-4 h-4" />
+        )}
         {isResolved ? 'Resolved' : 'Mark as Resolved'}
       </Button>
 
@@ -206,7 +253,7 @@ export function ActionPanel({ escalation }: ActionPanelProps) {
           <span>AI Playbook</span>
           <ChevronDown className={cn('w-4 h-4 transition-transform', showPlaybook && 'rotate-180')} />
         </button>
-        
+
         {showPlaybook && (
           <ol className="mt-3 space-y-1.5 text-sm text-muted-foreground animate-fade-in">
             {getPlaybookSteps().map((step, index) => (

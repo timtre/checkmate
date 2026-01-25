@@ -1,6 +1,7 @@
 import { Link, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { usePropertyScope } from '@/contexts/PropertyScopeContext';
+import { useEscalations, useBatchSuggestions } from '@/lib/api';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,8 +16,8 @@ import {
   Home,
   ArrowRight,
   Settings,
+  Loader2,
 } from 'lucide-react';
-import { escalations, docSuggestions } from '@/lib/mockData';
 
 const PropertyOverviewPage = () => {
   const { scope, selectedProperty } = usePropertyScope();
@@ -26,15 +27,30 @@ const PropertyOverviewPage = () => {
     return <Navigate to="/" replace />;
   }
 
-  // Filter data for this property
-  const propertyEscalations = escalations.filter(e => e.propertyId === selectedProperty.id);
+  // Fetch data from API
+  const { data: propertyEscalations = [], isLoading: escalationsLoading } = useEscalations(selectedProperty.id);
+  const { data: propertySuggestions = [], isLoading: suggestionsLoading } = useBatchSuggestions(selectedProperty.id);
+
+  const isLoading = escalationsLoading || suggestionsLoading;
+
+  // Filter data
   const openEscalations = propertyEscalations.filter(e => e.status === 'open' || e.status === 'waiting_on_pm');
   const resolvedCount = propertyEscalations.filter(e => e.status === 'resolved' || e.status === 'closed').length;
-  const resolvedByAI = propertyEscalations.length > 0 
-    ? Math.round((resolvedCount / propertyEscalations.length) * 100) 
-    : 0;
+  const resolvedByAI = propertyEscalations.length > 0
+    ? Math.round((resolvedCount / propertyEscalations.length) * 100)
+    : 100;
 
-  const propertySuggestions = docSuggestions.filter(s => s.propertyId === selectedProperty.id && s.status === 'new');
+  const pendingSuggestions = propertySuggestions.filter(s => s.status === 'new');
+
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -50,7 +66,7 @@ const PropertyOverviewPage = () => {
                 <h1 className="text-2xl font-bold text-foreground">{selectedProperty.name}</h1>
                 <p className="text-muted-foreground flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5" />
-                  {selectedProperty.address}
+                  {selectedProperty.address || 'No address'}
                 </p>
               </div>
             </div>
@@ -71,8 +87,8 @@ const PropertyOverviewPage = () => {
           />
           <KpiCard
             title="Active Stays"
-            value={3}
-            subtitle="Currently hosting"
+            value={propertyEscalations.length}
+            subtitle="Conversations"
             icon={Users}
           />
           <KpiCard
@@ -104,10 +120,10 @@ const PropertyOverviewPage = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {propertySuggestions.length > 0 && (
+              {pendingSuggestions.length > 0 && (
                 <div className="mb-4 p-3 bg-high-muted/50 rounded-lg border border-high/20">
                   <p className="text-sm text-high font-medium">
-                    {propertySuggestions.length} documentation improvement{propertySuggestions.length > 1 ? 's' : ''} suggested
+                    {pendingSuggestions.length} documentation improvement{pendingSuggestions.length > 1 ? 's' : ''} suggested
                   </p>
                 </div>
               )}
@@ -164,7 +180,7 @@ const PropertyOverviewPage = () => {
                   >
                     <div>
                       <p className="font-medium text-sm">{esc.summary}</p>
-                      <p className="text-xs text-muted-foreground">{esc.guestName} • {esc.unitName}</p>
+                      <p className="text-xs text-muted-foreground">{esc.guestName} - {esc.unitName}</p>
                     </div>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                       esc.priority === 'critical' ? 'bg-critical text-critical-foreground' :

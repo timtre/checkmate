@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Phone, MessageSquare, Unlock, RefreshCw, ChevronRight } from 'lucide-react';
-import { Escalation, getIntentLabel, getPriorityLabel, formatTimeAgo, properties } from '@/lib/mockData';
+import { Escalation, getIntentLabel, getPriorityLabel, formatTimeAgo } from '@/lib/mockData';
 import { usePropertyScope } from '@/contexts/PropertyScopeContext';
 interface EscalationCardProps {
   escalation: Escalation;
@@ -14,7 +14,8 @@ export function EscalationCard({
 }: EscalationCardProps) {
   const navigate = useNavigate();
   const {
-    selectProperty
+    selectProperty,
+    properties
   } = usePropertyScope();
   const borderStyles = {
     critical: 'escalation-critical',

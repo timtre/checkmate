@@ -2,10 +2,21 @@ import { useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { EscalationCard } from '@/components/dashboard/EscalationCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { escalations } from '@/lib/mockData';
+import { usePropertyScope } from '@/contexts/PropertyScopeContext';
+import { useAllEscalations } from '@/lib/api';
+import { Loader2 } from 'lucide-react';
 
 const InboxPage = () => {
   const [activeTab, setActiveTab] = useState('urgent');
+  const { properties, scope, selectedProperty } = usePropertyScope();
+
+  // Get property IDs based on scope
+  const propertyIds = scope === 'property' && selectedProperty
+    ? [selectedProperty.id]
+    : properties.map((p) => p.id);
+
+  // Fetch escalations from API
+  const { data: escalations = [], isLoading, error } = useAllEscalations(propertyIds);
 
   const urgentEscalations = escalations.filter(
     (e) => e.pmActionType === 'NOTIFY_PM_URGENT' && e.status !== 'resolved' && e.status !== 'closed'
@@ -20,13 +31,38 @@ const InboxPage = () => {
     (e) => e.status === 'resolved' || e.status === 'closed'
   );
 
+  if (isLoading) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppShell>
+        <div className="flex flex-col items-center justify-center py-16">
+          <p className="text-sm text-muted-foreground">Failed to load escalations</p>
+          <p className="text-xs text-muted-foreground mt-1">{(error as Error).message}</p>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
       <div className="space-y-6 animate-fade-in max-w-4xl">
         {/* Page header */}
         <div>
           <h1 className="text-xl font-semibold text-foreground">Escalations</h1>
-          <p className="text-sm text-muted-foreground">All properties</p>
+          <p className="text-sm text-muted-foreground">
+            {scope === 'property' && selectedProperty
+              ? selectedProperty.name
+              : 'All properties'}
+          </p>
         </div>
 
         {/* Tabs */}

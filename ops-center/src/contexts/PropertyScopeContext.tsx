@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
-import { Property, properties } from '@/lib/mockData';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { Property } from '@/lib/mockData';
+import { useProperties } from '@/lib/api';
 
 export type Scope = 'portfolio' | 'property';
 
@@ -10,6 +11,8 @@ interface PropertyScopeContextType {
   selectProperty: (property: Property) => void;
   exitPropertyScope: () => void;
   properties: Property[];
+  isLoading: boolean;
+  error: Error | null;
 }
 
 const PropertyScopeContext = createContext<PropertyScopeContextType | undefined>(undefined);
@@ -17,6 +20,21 @@ const PropertyScopeContext = createContext<PropertyScopeContextType | undefined>
 export function PropertyScopeProvider({ children }: { children: ReactNode }) {
   const [scope, setScope] = useState<Scope>('portfolio');
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+
+  // Fetch properties from API
+  const { data: properties = [], isLoading, error } = useProperties();
+
+  // Log for debugging
+  useEffect(() => {
+    console.log('[PropertyScope] Properties loaded:', properties.length, 'isLoading:', isLoading, 'error:', error);
+  }, [properties, isLoading, error]);
+
+  // Auto-select first property if none selected and properties are loaded
+  useEffect(() => {
+    if (!selectedProperty && properties.length > 0) {
+      // Don't auto-select, just make properties available
+    }
+  }, [properties, selectedProperty]);
 
   const selectProperty = (property: Property) => {
     setSelectedProperty(property);
@@ -37,6 +55,8 @@ export function PropertyScopeProvider({ children }: { children: ReactNode }) {
         selectProperty,
         exitPropertyScope,
         properties,
+        isLoading,
+        error: error as Error | null,
       }}
     >
       {children}
@@ -51,4 +71,3 @@ export function usePropertyScope() {
   }
   return context;
 }
-

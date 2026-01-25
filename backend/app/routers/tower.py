@@ -1,15 +1,20 @@
-"""Tower router: run Tower jobs and list Iceberg tables."""
+"""Tower router: run Tower jobs and list feature tables."""
 
 import os
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from supabase import create_client
 
 from app.config import settings
 
 # Tower SDK reads TOWER_API_KEY from os.environ directly
 if settings.tower_api_key:
     os.environ.setdefault("TOWER_API_KEY", settings.tower_api_key)
+
+
+def _get_supabase():
+    return create_client(settings.supabase_url, settings.supabase_key)
 
 
 router = APIRouter(prefix="/tower", tags=["tower"])
@@ -48,67 +53,78 @@ class TowerJobStatusResponse(BaseModel):
 
 @router.get("/tables", response_model=TowerTablesResponse)
 def list_tower_tables():
-    """List all Tower Iceberg tables in the checkmate namespace."""
+    """List Tower feature tables (stored in Supabase)."""
     try:
-        import tower
-
+        supabase = _get_supabase()
         tables_list = []
 
-        # Try to list tables in the checkmate namespace
+        # Check pattern_embeddings table
         try:
-            # Check for pattern_embeddings table
-            table = tower.tables("pattern_embeddings", namespace="checkmate")
-            df = table.load().to_pandas()
+            result = supabase.table("pattern_embeddings").select("pattern_id").execute()
+            record_count = len(result.data) if result.data else 0
             tables_list.append(
                 TowerTable(
                     name="pattern_embeddings",
-                    namespace="checkmate",
-                    record_count=len(df),
+                    namespace="tower_features",
+                    record_count=record_count,
                 )
             )
         except Exception:
-            # Table doesn't exist yet
-            pass
+            # Table might not have data yet
+            tables_list.append(
+                TowerTable(
+                    name="pattern_embeddings",
+                    namespace="tower_features",
+                    record_count=0,
+                )
+            )
 
         return TowerTablesResponse(tables=tables_list)
 
-    except ImportError:
-        raise HTTPException(status_code=503, detail="Tower SDK not available")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list tables: {e}")
 
 
 @router.get("/tables/{table_name}", response_model=dict)
 def get_tower_table_preview(table_name: str, limit: int = 10):
-    """Get a preview of records from a Tower Iceberg table."""
+    """Get a preview of records from a Tower feature table."""
     try:
-        import tower
+        supabase = _get_supabase()
 
-        table = tower.tables(table_name, namespace="checkmate")
-        df = table.load().to_pandas()
+        if table_name != "pattern_embeddings":
+            raise HTTPException(status_code=404, detail=f"Table '{table_name}' not found")
 
-        # Convert to list of dicts, excluding embedding column for readability
+        # Get total count
+        count_result = supabase.table("pattern_embeddings").select("pattern_id").execute()
+        total_records = len(count_result.data) if count_result.data else 0
+
+        # Get preview records (exclude embedding for readability)
+        result = (
+            supabase.table("pattern_embeddings")
+            .select(
+                "pattern_id, property_id, question_pattern, count, avg_confidence, escalation_count, computed_at"
+            )
+            .limit(limit)
+            .execute()
+        )
+
         records = []
-        for _, row in df.head(limit).iterrows():
-            record = {}
-            for col in df.columns:
-                if col == "embedding":
-                    record[col] = f"[{len(row[col])} dimensions]"
-                else:
-                    record[col] = row[col]
+        for row in result.data or []:
+            record = dict(row)
+            record["embedding"] = "[1536 dimensions]"  # Indicate embedding exists
             records.append(record)
 
         return {
             "table_name": table_name,
-            "namespace": "checkmate",
-            "total_records": len(df),
+            "namespace": "tower_features",
+            "total_records": total_records,
             "preview": records,
         }
 
-    except ImportError:
-        raise HTTPException(status_code=503, detail="Tower SDK not available")
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Table not found or error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to load table: {e}")
 
 
 @router.post("/features/{property_id}", response_model=TowerJobTriggerResponse)

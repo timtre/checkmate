@@ -7,6 +7,13 @@ export interface Source {
   similarity: number;
 }
 
+export interface TowerInsight {
+  question_pattern: string;
+  similarity: number;
+  historical_confidence: number;
+  escalation_count: number;
+}
+
 export interface ChatResponse {
   conversation_id: string;
   message_id: string;
@@ -15,6 +22,7 @@ export interface ChatResponse {
   sources: Source[];
   escalated: boolean;
   escalate_reason: string;
+  tower_insights: TowerInsight[];
 }
 
 export interface DocumentIngestResponse {
