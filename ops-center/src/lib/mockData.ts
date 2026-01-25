@@ -47,6 +47,7 @@ export interface Property {
   name: string;
   address: string;
   units: number;
+  imageUrl?: string;
 }
 
 export interface DashboardMetrics {

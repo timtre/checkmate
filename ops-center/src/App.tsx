@@ -8,7 +8,6 @@ import Index from "./pages/Index";
 import InboxPage from "./pages/InboxPage";
 import EscalationDetailPage from "./pages/EscalationDetailPage";
 import KnowledgeBasePage from "./pages/KnowledgeBasePage";
-import AnalyticsPage from "./pages/AnalyticsPage";
 import PropertyOverviewPage from "./pages/PropertyOverviewPage";
 import PropertyAnalyticsPage from "./pages/PropertyAnalyticsPage";
 import NotFound from "./pages/NotFound";
@@ -27,7 +26,6 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/escalations" element={<InboxPage />} />
             <Route path="/escalation/:id" element={<EscalationDetailPage />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
 
             {/* Property view routes */}
             <Route path="/property" element={<PropertyOverviewPage />} />

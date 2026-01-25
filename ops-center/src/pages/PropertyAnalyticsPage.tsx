@@ -1,13 +1,11 @@
 import { Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { usePropertyScope } from '@/contexts/PropertyScopeContext';
-import { DocSuggestionCard } from '@/components/dashboard/DocSuggestionCard';
+import { AggregationPanel } from '@/components/analytics/AggregationPanel';
 import {
   useEscalations,
-  useBatchSuggestions,
   useInsights,
   useTopQuestions,
-  useUpdateBatchSuggestion,
   deriveIntent,
   type TopIntentItem,
 } from '@/lib/api';
@@ -36,13 +34,10 @@ const PropertyAnalyticsPage = () => {
 
   // Fetch data from API
   const { data: propertyEscalations = [], isLoading: escalationsLoading } = useEscalations(selectedProperty.id);
-  const { data: propertySuggestions = [], isLoading: suggestionsLoading } = useBatchSuggestions(selectedProperty.id);
   const { data: insights, isLoading: insightsLoading } = useInsights(selectedProperty.id);
   const { data: topQuestions = [], isLoading: questionsLoading } = useTopQuestions(selectedProperty.id);
 
-  const updateSuggestion = useUpdateBatchSuggestion();
-
-  const isLoading = escalationsLoading || suggestionsLoading || insightsLoading || questionsLoading;
+  const isLoading = escalationsLoading || insightsLoading || questionsLoading;
 
   // Calculate resolution stats
   const resolvedCount = propertyEscalations.filter(e => e.status === 'resolved' || e.status === 'closed').length;
@@ -72,22 +67,6 @@ const PropertyAnalyticsPage = () => {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  const handleAccept = (suggestionId: string) => {
-    updateSuggestion.mutate({
-      propertyId: selectedProperty.id,
-      suggestionId,
-      status: 'approved',
-    });
-  };
-
-  const handleDismiss = (suggestionId: string) => {
-    updateSuggestion.mutate({
-      propertyId: selectedProperty.id,
-      suggestionId,
-      status: 'dismissed',
-    });
-  };
-
   if (isLoading) {
     return (
       <AppShell>
@@ -110,6 +89,9 @@ const PropertyAnalyticsPage = () => {
           <h1 className="text-2xl font-bold text-foreground">Property Analytics</h1>
           <p className="text-muted-foreground">Performance diagnostics for this specific property</p>
         </div>
+
+        {/* Aggregation Panel */}
+        <AggregationPanel propertyId={selectedProperty.id} />
 
         {/* Charts row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -203,37 +185,8 @@ const PropertyAnalyticsPage = () => {
               </TableBody>
             </Table>
           ) : (
-            <p className="text-sm text-muted-foreground">No question patterns recorded yet. Run the aggregation pipeline to generate insights.</p>
+            <p className="text-sm text-muted-foreground">No question patterns recorded yet. Click "Run Analysis" above to generate insights from your conversations.</p>
           )}
-        </div>
-
-        {/* Documentation Improvements for this property */}
-        <div className="bg-card rounded-xl border border-border p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-foreground">Suggested Knowledge Base Improvements</h3>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-              {propertySuggestions.filter((s) => s.status === 'new').length} pending
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground mb-6">
-            AI-identified documentation gaps specific to {selectedProperty.name}
-          </p>
-          <div className="space-y-3">
-            {propertySuggestions.length > 0 ? (
-              propertySuggestions.map((suggestion) => (
-                <DocSuggestionCard
-                  key={suggestion.id}
-                  suggestion={suggestion}
-                  onAccept={() => handleAccept(suggestion.id)}
-                  onDismiss={() => handleDismiss(suggestion.id)}
-                />
-              ))
-            ) : (
-              <p className="text-muted-foreground text-sm py-8 text-center">
-                No documentation improvements suggested for this property
-              </p>
-            )}
-          </div>
         </div>
       </div>
     </AppShell>

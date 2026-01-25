@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Phone, Unlock, RefreshCw, MessageSquare, Send, CheckCircle, Wifi, ChevronDown, Loader2 } from 'lucide-react';
+import { Phone, Unlock, RefreshCw, MessageSquare, Send, CheckCircle, Wifi, ChevronDown, Loader2, BookOpen } from 'lucide-react';
 import { Escalation, getIntentLabel } from '@/lib/mockData';
 import { useReplyToEscalation } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -191,19 +191,19 @@ export function ActionPanel({ escalation }: ActionPanelProps) {
     <div className="space-y-6">
       {/* Intent context */}
       <div>
-        <p className="text-xs text-muted-foreground mb-1">Issue type</p>
+        <p className="section-label mb-1">Issue Type</p>
         <p className="text-sm font-medium">{getIntentLabel(escalation.intent)}</p>
       </div>
 
       {/* Primary actions */}
-      <div>
-        <p className="text-xs text-muted-foreground mb-2">Recommended</p>
+      <div className="pt-4 border-t border-border">
+        <p className="section-label mb-3">Quick Actions</p>
         {renderActionButtons()}
       </div>
 
       {/* Message composer */}
-      <div>
-        <p className="text-xs text-muted-foreground mb-2">Send message</p>
+      <div className="pt-4 border-t border-border">
+        <p className="section-label mb-3">Message Guest</p>
         <Textarea
           placeholder="Type a message to the guest..."
           value={message}
@@ -227,22 +227,24 @@ export function ActionPanel({ escalation }: ActionPanelProps) {
       </div>
 
       {/* Resolution */}
-      <Button
-        className={cn(
-          'w-full gap-2',
-          isResolved && 'bg-success hover:bg-success/90 text-success-foreground'
-        )}
-        variant={isResolved ? 'default' : 'outline'}
-        onClick={handleResolve}
-        disabled={isResolved || replyMutation.isPending}
-      >
-        {replyMutation.isPending ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <CheckCircle className="w-4 h-4" />
-        )}
-        {isResolved ? 'Resolved' : 'Mark as Resolved'}
-      </Button>
+      <div className="pt-4 border-t border-border">
+        <Button
+          className={cn(
+            'w-full gap-2',
+            isResolved && 'bg-success hover:bg-success/90 text-success-foreground'
+          )}
+          variant={isResolved ? 'default' : 'outline'}
+          onClick={handleResolve}
+          disabled={isResolved || replyMutation.isPending}
+        >
+          {replyMutation.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <CheckCircle className="w-4 h-4" />
+          )}
+          {isResolved ? 'Resolved' : 'Mark as Resolved'}
+        </Button>
+      </div>
 
       {/* Playbook - collapsible */}
       <div className="pt-4 border-t border-border">
@@ -250,19 +252,26 @@ export function ActionPanel({ escalation }: ActionPanelProps) {
           onClick={() => setShowPlaybook(!showPlaybook)}
           className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          <span>AI Playbook</span>
+          <div className="flex items-center gap-1.5">
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>AI Playbook</span>
+          </div>
           <ChevronDown className={cn('w-4 h-4 transition-transform', showPlaybook && 'rotate-180')} />
         </button>
 
         {showPlaybook && (
-          <ol className="mt-3 space-y-1.5 text-sm text-muted-foreground animate-fade-in">
-            {getPlaybookSteps().map((step, index) => (
-              <li key={index} className="flex items-start gap-2">
-                <span className="text-xs text-muted-foreground/60 w-4">{index + 1}.</span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
+          <div className="mt-3 p-3 bg-muted/50 rounded-md animate-fade-in">
+            <ol className="space-y-2 text-sm text-muted-foreground">
+              {getPlaybookSteps().map((step, index) => (
+                <li key={index} className="flex items-start gap-2.5">
+                  <span className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-muted text-xs text-muted-foreground font-medium">
+                    {index + 1}
+                  </span>
+                  <span className="pt-0.5">{step}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
         )}
       </div>
     </div>

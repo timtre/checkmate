@@ -26,6 +26,16 @@ export function PropertyScopeProvider({ children }: { children: ReactNode }) {
     console.log('[PropertyScope] Properties loaded:', properties.length, 'isLoading:', isLoading, 'error:', error);
   }, [properties, isLoading, error]);
 
+  // Sync selectedProperty with refetched properties (e.g., after image upload)
+  useEffect(() => {
+    if (selectedProperty && properties.length > 0) {
+      const updated = properties.find((p) => p.id === selectedProperty.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedProperty)) {
+        setSelectedProperty(updated);
+      }
+    }
+  }, [properties, selectedProperty]);
+
   const selectProperty = (property: Property) => {
     setSelectedProperty(property);
   };

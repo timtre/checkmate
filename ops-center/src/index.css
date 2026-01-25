@@ -215,4 +215,23 @@
   .metric-value {
     @apply text-2xl font-semibold tracking-tight;
   }
+
+  /* Section label for panel headers */
+  .section-label {
+    @apply text-[10px] uppercase tracking-wide text-muted-foreground font-medium;
+  }
+
+  /* Metadata chip for subtle categorization */
+  .metadata-chip {
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs bg-muted text-muted-foreground;
+  }
+
+  /* Status chips for indicators */
+  .status-chip-warning {
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs bg-high/10 text-high font-medium;
+  }
+
+  .status-chip-critical {
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs bg-critical-pastel text-critical-pastel-text font-medium;
+  }
 }

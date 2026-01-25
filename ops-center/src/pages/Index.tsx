@@ -1,13 +1,22 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { ModeToggle } from '@/components/dashboard/ModeToggle';
-import { NeedsAttentionCard, EmptyAttentionState } from '@/components/dashboard/NeedsAttentionCard';
-import { SuggestionCard } from '@/components/dashboard/SuggestionCard';
+import { EscalationCard, EmptyAttentionState } from '@/components/dashboard/EscalationCard';
 import { PropertyHealthTable } from '@/components/dashboard/PropertyHealthTable';
 import { AnalyticsMode } from '@/components/dashboard/AnalyticsMode';
 import { usePropertyScope } from '@/contexts/PropertyScopeContext';
-import { useAllEscalations, useAllBatchSuggestions, useUpdateBatchSuggestion } from '@/lib/api';
-import { Loader2 } from 'lucide-react';
+import { useAllEscalations } from '@/lib/api';
+import { Loader2, ChevronRight } from 'lucide-react';
+
+const MAX_DASHBOARD_ITEMS = 3;
+
+const getGreeting = (): string => {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 17) return 'Good afternoon';
+  return 'Good evening';
+};
 
 const Index = () => {
   const [mode, setMode] = useState<'ops' | 'analytics'>('ops');
@@ -16,15 +25,7 @@ const Index = () => {
   const propertyIds = properties.map((p) => p.id);
 
   // Fetch escalations from API
-  const { data: escalations = [], isLoading: escalationsLoading } = useAllEscalations(propertyIds);
-
-  // Fetch suggestions from API
-  const { data: docSuggestions = [], isLoading: suggestionsLoading } = useAllBatchSuggestions(propertyIds);
-
-  // Mutation for updating suggestions
-  const updateSuggestion = useUpdateBatchSuggestion();
-
-  const isLoading = escalationsLoading || suggestionsLoading;
+  const { data: escalations = [], isLoading } = useAllEscalations(propertyIds);
 
   const needsAttention = escalations
     .filter((e) => e.status === 'open')
@@ -37,23 +38,8 @@ const Index = () => {
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
 
-  const suggestions = docSuggestions.filter((s) => s.status === 'new').slice(0, 3);
-
-  const handleAcceptSuggestion = (suggestionId: string, propertyId: string) => {
-    updateSuggestion.mutate({
-      propertyId,
-      suggestionId,
-      status: 'approved',
-    });
-  };
-
-  const handleDismissSuggestion = (suggestionId: string, propertyId: string) => {
-    updateSuggestion.mutate({
-      propertyId,
-      suggestionId,
-      status: 'dismissed',
-    });
-  };
+  const displayItems = needsAttention.slice(0, MAX_DASHBOARD_ITEMS);
+  const overflowCount = needsAttention.length - MAX_DASHBOARD_ITEMS;
 
   return (
     <AppShell>
@@ -62,7 +48,7 @@ const Index = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold text-foreground">
-              {mode === 'ops' ? 'Good morning' : 'Analytics'}
+              {mode === 'ops' ? getGreeting() : 'Analytics'}
             </h1>
             <p className="text-sm text-muted-foreground">
               {mode === 'ops'
@@ -84,53 +70,55 @@ const Index = () => {
               </div>
             ) : (
               <>
-                {/* Main content grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                  {/* Needs Attention - Primary focus */}
-                  <section className="lg:col-span-3">
-                    <h2 className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+                {/* Needs Attention - Top section */}
+                <section>
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-sm font-medium text-foreground flex items-center gap-2">
                       {needsAttention.length > 0 && (
                         <span className="w-2 h-2 rounded-full bg-warning" />
                       )}
-                      Needs your attention
+                      Needs attention now
                     </h2>
-                    <div className="rounded-lg border border-border/50 bg-card px-4">
-                      {needsAttention.length > 0 ? (
-                        needsAttention.map((escalation) => (
-                          <NeedsAttentionCard key={escalation.id} escalation={escalation} />
-                        ))
-                      ) : (
-                        <EmptyAttentionState />
-                      )}
-                    </div>
-                  </section>
-
-                  {/* Suggested Improvements */}
-                  <section className="lg:col-span-2">
-                    <h2 className="text-sm font-medium text-foreground mb-3">
-                      Suggested improvements
-                    </h2>
-                    <div className="space-y-3">
-                      {suggestions.length > 0 ? (
-                        suggestions.map((suggestion) => (
-                          <SuggestionCard
-                            key={suggestion.id}
-                            suggestion={suggestion}
-                            onAccept={() => handleAcceptSuggestion(suggestion.id, suggestion.propertyId)}
-                            onDismiss={() => handleDismissSuggestion(suggestion.id, suggestion.propertyId)}
+                    {needsAttention.length > 0 && (
+                      <Link
+                        to="/escalations"
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                      >
+                        View all
+                        <ChevronRight className="w-3 h-3" />
+                      </Link>
+                    )}
+                  </div>
+                  <div className="rounded-lg border border-border/50 bg-card px-4">
+                    {displayItems.length > 0 ? (
+                      <>
+                        {displayItems.map((escalation) => (
+                          <EscalationCard
+                            key={escalation.id}
+                            escalation={escalation}
+                            variant="compact"
                           />
-                        ))
-                      ) : (
-                        <p className="text-sm text-muted-foreground py-4">
-                          No suggestions right now
-                        </p>
-                      )}
-                    </div>
-                  </section>
-                </div>
+                        ))}
+                        {overflowCount > 0 && (
+                          <Link
+                            to="/escalations"
+                            className="block py-3 text-center text-sm text-muted-foreground hover:text-foreground transition-colors border-t border-border/30"
+                          >
+                            + {overflowCount} more in escalations
+                          </Link>
+                        )}
+                      </>
+                    ) : (
+                      <EmptyAttentionState />
+                    )}
+                  </div>
+                </section>
 
-                {/* Property Health Table */}
-                <PropertyHealthTable />
+                {/* Property Health Table - Bottom section */}
+                <section>
+                  <h2 className="text-sm font-medium text-foreground mb-3">All properties</h2>
+                  <PropertyHealthTable />
+                </section>
               </>
             )}
           </>

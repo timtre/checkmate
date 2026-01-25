@@ -210,3 +210,47 @@ export function useAllTopQuestions(propertyIds: string[]) {
     enabled: propertyIds.length > 0,
   });
 }
+
+// ===== Per-Property Insights Hook =====
+
+export interface PerPropertyInsight {
+  propertyId: string;
+  totalConversations: number;
+  totalEscalations: number;
+  frictionRate: number;      // escalations / conversations * 100
+  interventionRate: number;  // same as frictionRate for now
+}
+
+export function usePerPropertyInsights(propertyIds: string[]) {
+  return useQuery({
+    queryKey: ['per-property-insights', propertyIds],
+    queryFn: async (): Promise<Map<string, PerPropertyInsight>> => {
+      if (propertyIds.length === 0) return new Map();
+
+      const results = await Promise.all(
+        propertyIds.map((id) => getInsights(id).catch(() => null))
+      );
+
+      const insightsMap = new Map<string, PerPropertyInsight>();
+
+      for (const result of results) {
+        if (result) {
+          const rate = result.total_conversations > 0
+            ? Math.round((result.total_escalations / result.total_conversations) * 100)
+            : 0;
+
+          insightsMap.set(result.property_id, {
+            propertyId: result.property_id,
+            totalConversations: result.total_conversations,
+            totalEscalations: result.total_escalations,
+            frictionRate: rate,
+            interventionRate: rate,
+          });
+        }
+      }
+
+      return insightsMap;
+    },
+    enabled: propertyIds.length > 0,
+  });
+}

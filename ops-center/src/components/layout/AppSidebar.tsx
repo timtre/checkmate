@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, ChevronRight, MapPin } from 'lucide-react';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { usePropertyScope } from '@/contexts/PropertyScopeContext';
 import { useAllEscalations } from '@/lib/api';
 
@@ -94,7 +94,6 @@ export function AppSidebar() {
   // Determine active nav item - All Properties view
   const isDashboard = location.pathname === '/';
   const isEscalations = location.pathname.startsWith('/escalations') || location.pathname.startsWith('/escalation/');
-  const isPortfolioAnalytics = location.pathname === '/analytics';
 
   // Determine active nav item - Property view
   const isPropertyOverview = location.pathname === '/property';
@@ -115,7 +114,7 @@ export function AppSidebar() {
     <aside className="fixed left-0 top-0 h-screen w-56 bg-sidebar flex flex-col border-r border-sidebar-border">
       {/* Logo */}
       <div className="h-14 flex items-center px-4 border-b border-sidebar-border">
-        <span className="font-semibold text-foreground">StayMate</span>
+        <span className="font-semibold text-foreground">CheckMate</span>
       </div>
 
       {/* Navigation */}
@@ -126,24 +125,11 @@ export function AppSidebar() {
             {/* Back button */}
             <button
               onClick={handleBackToAllProperties}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-smooth mb-2"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-smooth mb-4"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>All Properties</span>
             </button>
-
-            {/* Property card */}
-            <div className="mx-1 mb-4 p-3 rounded-lg bg-accent/50 border border-border/50">
-              <p className="text-sm font-semibold text-foreground truncate">
-                {selectedProperty.name}
-              </p>
-              {selectedProperty.address && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 truncate">
-                  <MapPin className="w-3 h-3 flex-shrink-0" />
-                  {selectedProperty.address}
-                </p>
-              )}
-            </div>
 
             {/* Property-specific nav */}
             <NavItem href="/property" label="Overview" active={isPropertyOverview} />
@@ -156,7 +142,6 @@ export function AppSidebar() {
             {/* Main nav items */}
             <NavItem href="/" label="Dashboard" active={isDashboard} />
             <NavItem href="/escalations" label="Escalations" badge={urgentCount} active={isEscalations} />
-            <NavItem href="/analytics" label="Analytics" active={isPortfolioAnalytics} />
 
             {/* Divider */}
             <div className="my-3 border-t border-sidebar-border" />

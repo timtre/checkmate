@@ -2,7 +2,6 @@ import { useState, ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Calendar, MapPin } from "lucide-react";
 import { PhaseSelector, StayPhase } from "@/components/stay/PhaseSelector";
-import { EmergencyContact } from "@/components/stay/EmergencyContact";
 import { PreArrivalPhase } from "@/components/stay/phases/PreArrivalPhase";
 import { ArrivalPhase } from "@/components/stay/phases/ArrivalPhase";
 import { First30MinsPhase } from "@/components/stay/phases/First30MinsPhase";
@@ -89,11 +88,6 @@ export function StayView({ propertyName, propertyImageUrl, children }: StayViewP
         <AnimatePresence mode="wait">
           <div key={activePhase}>{renderPhaseContent()}</div>
         </AnimatePresence>
-      </div>
-
-      {/* Sticky Emergency Contact */}
-      <div className="px-4 mt-3">
-        <EmergencyContact />
       </div>
 
       {children}

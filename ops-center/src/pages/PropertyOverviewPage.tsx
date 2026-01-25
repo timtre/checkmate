@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { usePropertyScope } from '@/contexts/PropertyScopeContext';
@@ -5,6 +6,7 @@ import { useEscalations, useBatchSuggestions } from '@/lib/api';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { PropertySettingsSheet } from '@/components/settings/PropertySettingsSheet';
 import {
   Building2,
   Users,
@@ -17,10 +19,12 @@ import {
   ArrowRight,
   Settings,
   Loader2,
+  ImageIcon,
 } from 'lucide-react';
 
 const PropertyOverviewPage = () => {
   const { selectedProperty } = usePropertyScope();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Redirect to all properties view if no property selected
   if (!selectedProperty) {
@@ -55,26 +59,48 @@ const PropertyOverviewPage = () => {
   return (
     <AppShell>
       <div className="space-y-6 animate-fade-in">
-        {/* Property header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Building2 className="w-6 h-6 text-primary" />
+        {/* Property header with image */}
+        <div className="space-y-4">
+          {/* Cover image */}
+          <div className="relative w-full h-48 rounded-xl overflow-hidden bg-muted">
+            {selectedProperty.imageUrl ? (
+              <img
+                src={selectedProperty.imageUrl}
+                alt={`${selectedProperty.name} property`}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/5 to-primary/10">
+                <div className="text-center text-muted-foreground">
+                  <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">No cover image</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">{selectedProperty.name}</h1>
-                <p className="text-muted-foreground flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5" />
-                  {selectedProperty.address || 'No address'}
-                </p>
-              </div>
+            )}
+            {/* Gradient overlay for text readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+            {/* Property info overlay */}
+            <div className="absolute bottom-0 left-0 right-0 p-4">
+              <h1 className="text-2xl font-bold text-white drop-shadow-md">{selectedProperty.name}</h1>
+              <p className="text-white/90 flex items-center gap-1 drop-shadow-sm">
+                <MapPin className="w-3.5 h-3.5" />
+                {selectedProperty.address || 'No address'}
+              </p>
             </div>
           </div>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Settings className="w-4 h-4" />
-            Property Settings
-          </Button>
+
+          {/* Settings button */}
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings className="w-4 h-4" />
+              Property Settings
+            </Button>
+          </div>
         </div>
 
         {/* Property KPIs */}
@@ -196,6 +222,14 @@ const PropertyOverviewPage = () => {
           </Card>
         )}
       </div>
+
+      <PropertySettingsSheet
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        propertyId={selectedProperty.id}
+        propertyName={selectedProperty.name}
+        propertyImageUrl={selectedProperty.imageUrl}
+      />
     </AppShell>
   );
 };

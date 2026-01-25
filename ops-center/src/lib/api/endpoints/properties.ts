@@ -1,10 +1,17 @@
 // Properties API endpoints with React Query hooks
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch, BASE_URL } from '../client';
 import type { PropertiesListResponse } from '../types';
 import { mapBackendProperty } from '../transformers';
 import type { Property } from '../../mockData';
+
+// ===== Types =====
+
+export interface ImageUploadResponse {
+  property_id: string;
+  image_url: string;
+}
 
 // ===== API Functions =====
 
@@ -13,6 +20,25 @@ export async function getProperties(): Promise<PropertiesListResponse> {
   const result = await apiFetch<PropertiesListResponse>('/properties');
   console.log('[API] Properties result:', result);
   return result;
+}
+
+export async function uploadPropertyImage(
+  propertyId: string,
+  file: File
+): Promise<ImageUploadResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/image`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Image upload failed: ${res.status}`);
+  }
+
+  return res.json();
 }
 
 // ===== React Query Hooks =====
@@ -37,5 +63,18 @@ export function useProperty(propertyId: string | null) {
       return item ? mapBackendProperty(item) : null;
     },
     enabled: !!propertyId,
+  });
+}
+
+export function useUploadPropertyImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ propertyId, file }: { propertyId: string; file: File }) =>
+      uploadPropertyImage(propertyId, file),
+    onSuccess: () => {
+      // Invalidate properties to refetch with new image URL
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+    },
   });
 }

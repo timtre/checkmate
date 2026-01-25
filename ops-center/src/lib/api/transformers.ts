@@ -274,6 +274,7 @@ export function mapBackendProperty(item: PropertyItem): Property {
     name: item.name,
     address: '', // Not in backend data, could be added later
     units: 1, // Not in backend data
+    imageUrl: item.image_url || undefined,
   };
 }
 

@@ -53,8 +53,11 @@ export {
 
 export {
   getProperties,
+  uploadPropertyImage,
   useProperties,
   useProperty,
+  useUploadPropertyImage,
+  type ImageUploadResponse,
 } from './endpoints/properties';
 
 export {
@@ -69,4 +72,35 @@ export {
   useTopIntents,
   useTopQuestions,
   useAllTopQuestions,
+  usePerPropertyInsights,
+  type PerPropertyInsight,
 } from './endpoints/insights';
+
+export {
+  getKnowledgeBase,
+  ingestDocument,
+  useKnowledgeBase,
+  usePropertyDocument,
+  useIngestDocument,
+  type KnowledgeBaseDocument,
+  type KnowledgeBaseResponse,
+  type IngestDocumentRequest,
+  type IngestDocumentResponse,
+} from './endpoints/knowledge-base';
+
+export {
+  resetPropertyData,
+  createGuestToken,
+  useResetPropertyData,
+  useCreateGuestToken,
+  type ResetPropertyDataResponse,
+  type TokenCreateResponse,
+} from './endpoints/settings';
+
+export {
+  triggerAggregation,
+  streamAggregationProgress,
+  useTriggerAggregation,
+  type TriggerAggregationResponse,
+  type AggregationProgress,
+} from './endpoints/aggregation';

@@ -1,8 +1,7 @@
 import { ReactNode } from 'react';
 import { AppSidebar } from './AppSidebar';
-import { Search, Bell, Building2, LayoutGrid } from 'lucide-react';
+import { Search, Building2, LayoutGrid } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { usePropertyScope } from '@/contexts/PropertyScopeContext';
 
 interface AppShellProps {
@@ -51,10 +50,6 @@ export function AppShell({ children }: AppShellProps) {
             <span className="text-xs text-muted-foreground">
               Last updated: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-critical rounded-full" />
-            </Button>
           </div>
         </header>
 

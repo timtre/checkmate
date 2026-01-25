@@ -80,38 +80,30 @@ const EscalationDetailPage = () => {
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            <span>{propertyName}</span>
-            <span>·</span>
-            <span>{escalation.unitName}</span>
-            <span>·</span>
-            <span>{escalation.guestName}</span>
-            <span>·</span>
-            <span>{getIntentLabel(escalation.intent)}</span>
-            <span>·</span>
-            <span>{formatTimeAgo(escalation.createdAt)}</span>
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-muted-foreground">{propertyName} / {escalation.unitName}</span>
+            <span className="font-medium text-foreground">{escalation.guestName}</span>
+            <span className="text-muted-foreground">{formatTimeAgo(escalation.createdAt)}</span>
+            <span className="metadata-chip">{getIntentLabel(escalation.intent)}</span>
             {escalation.satisfactionSignal === 'unhappy' && (
-              <>
-                <span>·</span>
-                <span className="text-critical">Guest frustrated</span>
-              </>
+              <span className="status-chip-critical">Guest frustrated</span>
             )}
           </div>
         </div>
 
-        {/* Two column layout - action panel prominent */}
+        {/* Two column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-          {/* Action panel - visually dominant, on the left */}
-          <div className="lg:col-span-2 lg:order-2">
+          {/* Timeline - clean list */}
+          <div className="lg:col-span-3">
+            <h2 className="section-label mb-4">Timeline</h2>
+            <EscalationTimeline events={escalation.timeline} />
+          </div>
+
+          {/* Action panel - visually dominant */}
+          <div className="lg:col-span-2">
             <div className="sticky top-24">
               <ActionPanel escalation={escalation} />
             </div>
-          </div>
-
-          {/* Timeline - clean list */}
-          <div className="lg:col-span-3 lg:order-1">
-            <h2 className="text-sm font-medium text-muted-foreground mb-4">Timeline</h2>
-            <EscalationTimeline events={escalation.timeline} />
           </div>
         </div>
       </div>

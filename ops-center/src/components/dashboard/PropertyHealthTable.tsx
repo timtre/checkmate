@@ -146,7 +146,7 @@ export const PropertyHealthTable = () => {
 
   const handleRowClick = (property: Property) => {
     selectProperty(property);
-    navigate(`/property/${property.id}`);
+    navigate('/property');
   };
 
   if (isLoading) {

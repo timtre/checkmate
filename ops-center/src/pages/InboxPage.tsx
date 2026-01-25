@@ -4,10 +4,10 @@ import { EscalationCard } from '@/components/dashboard/EscalationCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePropertyScope } from '@/contexts/PropertyScopeContext';
 import { useAllEscalations } from '@/lib/api';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle2 } from 'lucide-react';
 
 const InboxPage = () => {
-  const [activeTab, setActiveTab] = useState('urgent');
+  const [activeTab, setActiveTab] = useState('open');
   const { properties, selectedProperty, isPropertyView } = usePropertyScope();
 
   // Get property IDs based on view
@@ -18,14 +18,8 @@ const InboxPage = () => {
   // Fetch escalations from API
   const { data: escalations = [], isLoading, error } = useAllEscalations(propertyIds);
 
-  const urgentEscalations = escalations.filter(
-    (e) => e.pmActionType === 'NOTIFY_PM_URGENT' && e.status !== 'resolved' && e.status !== 'closed'
-  );
-  const needsInputEscalations = escalations.filter(
-    (e) => e.pmActionType === 'REQUEST_PM_INPUT' && e.status !== 'resolved' && e.status !== 'closed'
-  );
-  const fyiEscalations = escalations.filter(
-    (e) => e.pmActionType === 'NOTIFY_PM_PASSIVE' && e.status !== 'resolved' && e.status !== 'closed'
+  const openEscalations = escalations.filter(
+    (e) => e.status !== 'resolved' && e.status !== 'closed'
   );
   const closedEscalations = escalations.filter(
     (e) => e.status === 'resolved' || e.status === 'closed'
@@ -69,35 +63,13 @@ const InboxPage = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-transparent border-b border-border rounded-none w-full justify-start gap-4 h-auto p-0">
             <TabsTrigger
-              value="urgent"
+              value="open"
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 pb-2 text-sm"
             >
-              Urgent
-              {urgentEscalations.length > 0 && (
+              Open
+              {openEscalations.length > 0 && (
                 <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-critical text-critical-foreground text-xs">
-                  {urgentEscalations.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="input"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 pb-2 text-sm"
-            >
-              Needs Input
-              {needsInputEscalations.length > 0 && (
-                <span className="ml-1.5 text-muted-foreground">
-                  {needsInputEscalations.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="fyi"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 pb-2 text-sm"
-            >
-              FYI
-              {fyiEscalations.length > 0 && (
-                <span className="ml-1.5 text-muted-foreground">
-                  {fyiEscalations.length}
+                  {openEscalations.length}
                 </span>
               )}
             </TabsTrigger>
@@ -106,40 +78,25 @@ const InboxPage = () => {
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 pb-2 text-sm"
             >
               Closed
+              {closedEscalations.length > 0 && (
+                <span className="ml-1.5 text-muted-foreground">
+                  {closedEscalations.length}
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="urgent" className="mt-4">
-            {urgentEscalations.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8">No urgent escalations</p>
-            ) : (
-              <div>
-                {urgentEscalations.map((escalation) => (
-                  <EscalationCard key={escalation.id} escalation={escalation} />
-                ))}
+          <TabsContent value="open" className="mt-4">
+            {openEscalations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <CheckCircle2 className="w-8 h-8 text-success mb-3" />
+                <p className="text-sm font-medium text-foreground">All clear</p>
+                <p className="text-xs text-muted-foreground mt-1">No escalations need your attention</p>
               </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="input" className="mt-4">
-            {needsInputEscalations.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8">No escalations need input</p>
             ) : (
               <div>
-                {needsInputEscalations.map((escalation) => (
-                  <EscalationCard key={escalation.id} escalation={escalation} />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="fyi" className="mt-4">
-            {fyiEscalations.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8">No FYI notifications</p>
-            ) : (
-              <div>
-                {fyiEscalations.map((escalation) => (
-                  <EscalationCard key={escalation.id} escalation={escalation} />
+                {openEscalations.map((escalation) => (
+                  <EscalationCard key={escalation.id} escalation={escalation} variant="full" />
                 ))}
               </div>
             )}
@@ -147,11 +104,11 @@ const InboxPage = () => {
 
           <TabsContent value="closed" className="mt-4">
             {closedEscalations.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8">No closed escalations</p>
+              <p className="text-sm text-muted-foreground py-8 text-center">No resolved escalations yet</p>
             ) : (
               <div>
                 {closedEscalations.map((escalation) => (
-                  <EscalationCard key={escalation.id} escalation={escalation} compact />
+                  <EscalationCard key={escalation.id} escalation={escalation} variant="closed" />
                 ))}
               </div>
             )}

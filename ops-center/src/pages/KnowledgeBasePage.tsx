@@ -1,13 +1,84 @@
+import { useState, useEffect } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { usePropertyScope } from '@/contexts/PropertyScopeContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Upload, Building2 } from 'lucide-react';
+import { Building2, Loader2 } from 'lucide-react';
+import { MarkdownEditor } from '@/components/knowledge/MarkdownEditor';
+import { DocSuggestionCard } from '@/components/dashboard/DocSuggestionCard';
+import {
+  usePropertyDocument,
+  useIngestDocument,
+  useBatchSuggestions,
+  useUpdateBatchSuggestion,
+} from '@/lib/api';
 
 const KnowledgeBasePage = () => {
   const { selectedProperty, selectProperty, properties } = usePropertyScope();
+  const [documentTitle, setDocumentTitle] = useState('Property Guide');
+  const [documentContent, setDocumentContent] = useState('');
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
+    null
+  );
+
+  const propertyId = selectedProperty?.id ?? null;
+  const { data: existingDocument, isLoading: isLoadingDocument } = usePropertyDocument(propertyId);
+  const ingestMutation = useIngestDocument();
+  const { data: suggestions = [], isLoading: suggestionsLoading } = useBatchSuggestions(propertyId);
+  const updateSuggestion = useUpdateBatchSuggestion();
+
+  // Load existing document content when available
+  useEffect(() => {
+    if (existingDocument) {
+      setDocumentTitle(existingDocument.title);
+      setDocumentContent(existingDocument.content);
+    } else if (existingDocument === null) {
+      // No document exists, reset to defaults
+      setDocumentTitle('Property Guide');
+      setDocumentContent('');
+    }
+  }, [existingDocument]);
+
+  // Clear feedback on property change
+  useEffect(() => {
+    setFeedback(null);
+  }, [propertyId]);
+
+  const handleSave = async () => {
+    if (!propertyId) return;
+
+    setFeedback(null);
+    try {
+      await ingestMutation.mutateAsync({
+        propertyId,
+        title: documentTitle,
+        content: documentContent,
+      });
+      setFeedback({ type: 'success', message: 'Document saved successfully.' });
+    } catch {
+      setFeedback({ type: 'error', message: 'Failed to save document.' });
+    }
+  };
+
+  const handleAccept = (suggestionId: string) => {
+    if (!propertyId) return;
+    updateSuggestion.mutate({
+      propertyId,
+      suggestionId,
+      status: 'approved',
+    });
+  };
+
+  const handleDismiss = (suggestionId: string) => {
+    if (!propertyId) return;
+    updateSuggestion.mutate({
+      propertyId,
+      suggestionId,
+      status: 'dismissed',
+    });
+  };
 
   // If accessed directly without property selected, prompt to select property
   if (!selectedProperty) {
@@ -16,11 +87,9 @@ const KnowledgeBasePage = () => {
         <div className="space-y-6 animate-fade-in max-w-md mx-auto py-12">
           <div>
             <h1 className="text-xl font-semibold text-foreground mb-1">Knowledge Base</h1>
-            <p className="text-sm text-muted-foreground">
-              Select a property to configure
-            </p>
+            <p className="text-sm text-muted-foreground">Select a property to configure</p>
           </div>
-          
+
           <div className="space-y-1">
             {properties.map((property) => (
               <button
@@ -50,16 +119,64 @@ const KnowledgeBasePage = () => {
           <h1 className="text-xl font-semibold text-foreground">Knowledge Base</h1>
         </div>
 
-        {/* Document upload - minimal */}
+        {/* House Manual - Markdown Editor */}
         <section>
           <h2 className="text-sm font-medium text-foreground mb-3">House Manual</h2>
-          <div className="border border-dashed border-border rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors cursor-pointer">
-            <Upload className="w-5 h-5 mx-auto mb-2 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Drop PDF or text files here
-            </p>
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">Last indexed: Never</p>
+
+          {isLoadingDocument ? (
+            <div className="flex items-center justify-center py-12 border border-dashed border-border rounded-lg">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading document...</span>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="documentTitle" className="text-xs">
+                  Document Title
+                </Label>
+                <Input
+                  id="documentTitle"
+                  value={documentTitle}
+                  onChange={(e) => setDocumentTitle(e.target.value)}
+                  placeholder="e.g., Property Guide"
+                  className="h-9"
+                />
+              </div>
+              <MarkdownEditor
+                value={documentContent}
+                onChange={setDocumentContent}
+                defaultTab="preview"
+                placeholder="Write your property guide in markdown...
+
+# Welcome to Your Stay
+
+## Check-in Instructions
+1. Enter the 4-digit code on the keypad
+2. Wait for the green light
+
+## WiFi
+- Network: Guest-WiFi
+- Password: welcome123
+
+## House Rules
+- No smoking
+- Quiet hours: 10pm - 8am"
+                minHeight={300}
+              />
+            </div>
+          )}
+
+          {feedback && (
+            <div
+              className={`mt-3 px-3 py-2 rounded-md text-sm ${
+                feedback.type === 'success'
+                  ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                  : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+              }`}
+            >
+              {feedback.message}
+            </div>
+          )}
         </section>
 
         {/* Access & Check-in */}
@@ -68,16 +185,27 @@ const KnowledgeBasePage = () => {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="lockType" className="text-xs">Lock Type</Label>
-                <Input id="lockType" placeholder="e.g., Keypad" defaultValue="Keypad" className="h-9" />
+                <Label htmlFor="lockType" className="text-xs">
+                  Lock Type
+                </Label>
+                <Input
+                  id="lockType"
+                  placeholder="e.g., Keypad"
+                  defaultValue="Keypad"
+                  className="h-9"
+                />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="backupAccess" className="text-xs">Backup Access</Label>
+                <Label htmlFor="backupAccess" className="text-xs">
+                  Backup Access
+                </Label>
                 <Input id="backupAccess" placeholder="e.g., Key under mat" className="h-9" />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="checkInSteps" className="text-xs">Check-in Steps</Label>
+              <Label htmlFor="checkInSteps" className="text-xs">
+                Check-in Steps
+              </Label>
               <Textarea
                 id="checkInSteps"
                 placeholder="Step-by-step instructions..."
@@ -87,77 +215,58 @@ const KnowledgeBasePage = () => {
 3. Take the elevator to your floor"
               />
               <p className="text-xs text-muted-foreground">
-                💡 Consider adding: Building entrance photo, floor number
+                Consider adding: Building entrance photo, floor number
               </p>
             </div>
           </div>
         </section>
 
-        {/* Wi-Fi */}
+        {/* Suggested Improvements */}
         <section>
-          <h2 className="text-sm font-medium text-foreground mb-3">Wi-Fi</h2>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="wifiName" className="text-xs">Network Name</Label>
-                <Input id="wifiName" defaultValue="Unit2A-Guest" className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="wifiPassword" className="text-xs">Password</Label>
-                <Input id="wifiPassword" defaultValue="welcome2024" className="h-9" />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="routerLocation" className="text-xs">Router Location</Label>
-              <Input
-                id="routerLocation"
-                placeholder="Where is the router?"
-                defaultValue="Hallway closet, top shelf"
-                className="h-9"
-              />
-            </div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-medium text-foreground">Suggested Improvements</h2>
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+              {suggestions.filter((s) => s.status === 'new').length} pending
+            </span>
           </div>
-        </section>
-
-        {/* Escalation settings */}
-        <section>
-          <h2 className="text-sm font-medium text-foreground mb-3">Escalation Settings</h2>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="pmPhone" className="text-xs">Your Phone</Label>
-                <Input id="pmPhone" type="tel" placeholder="+49..." className="h-9" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="pmEmail" className="text-xs">Your Email</Label>
-                <Input id="pmEmail" type="email" placeholder="pm@example.com" className="h-9" />
-              </div>
+          <p className="text-xs text-muted-foreground mb-4">
+            AI-identified documentation gaps based on guest conversations
+          </p>
+          {suggestionsLoading ? (
+            <div className="flex items-center justify-center py-8 border border-dashed border-border rounded-lg">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading suggestions...</span>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Quiet Hours</Label>
-              <div className="flex items-center gap-2">
-                <Input type="time" className="w-24 h-9" defaultValue="22:00" />
-                <span className="text-sm text-muted-foreground">to</span>
-                <Input type="time" className="w-24 h-9" defaultValue="08:00" />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Only critical issues trigger notifications during quiet hours
-              </p>
+          ) : suggestions.length > 0 ? (
+            <div className="space-y-3">
+              {suggestions.map((suggestion) => (
+                <DocSuggestionCard
+                  key={suggestion.id}
+                  suggestion={suggestion}
+                  onAccept={() => handleAccept(suggestion.id)}
+                  onDismiss={() => handleDismiss(suggestion.id)}
+                />
+              ))}
             </div>
-          </div>
-        </section>
-
-        {/* Test */}
-        <section>
-          <h2 className="text-sm font-medium text-foreground mb-3">Test</h2>
-          <Button variant="outline" className="w-full">
-            Open Chat Simulator
-          </Button>
+          ) : (
+            <p className="text-muted-foreground text-sm py-8 text-center border border-dashed border-border rounded-lg">
+              No documentation improvements suggested yet
+            </p>
+          )}
         </section>
 
         {/* Save */}
         <div className="pt-4 border-t border-border">
-          <Button>Save Changes</Button>
+          <Button onClick={handleSave} disabled={ingestMutation.isPending || !documentTitle.trim()}>
+            {ingestMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
+          </Button>
         </div>
       </div>
     </AppShell>

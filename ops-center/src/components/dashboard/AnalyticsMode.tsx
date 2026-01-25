@@ -1,11 +1,53 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { usePropertyScope } from '@/contexts/PropertyScopeContext';
+import {
+  useTopIntents,
+  useAllTopQuestions,
+  useAllInsights,
+  usePerPropertyInsights,
+} from '@/lib/api';
+import { getIntentLabel, getIntentIcon } from '@/lib/mockData';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Loader2 } from 'lucide-react';
 
 const dateRanges = ['7 days', '30 days', '90 days'] as const;
 
 export const AnalyticsMode = () => {
   const [range, setRange] = useState<typeof dateRanges[number]>('30 days');
+  const { properties } = usePropertyScope();
+  const propertyIds = properties.map((p) => p.id);
+
+  // Fetch data from API
+  const { data: topIntents = [], isLoading: intentsLoading } = useTopIntents(propertyIds);
+  const { data: topQuestions = [], isLoading: questionsLoading } = useAllTopQuestions(propertyIds);
+  const { data: insights, isLoading: insightsLoading } = useAllInsights(propertyIds);
+  const { data: perPropertyInsights } = usePerPropertyInsights(propertyIds);
+
+  const isLoading = intentsLoading || questionsLoading || insightsLoading;
+
+  // Calculate resolution stats from insights
+  const totalEscalations = insights?.total_escalations || 0;
+  const totalConversations = insights?.total_conversations || 1;
+  const humanInterventionRate = totalConversations > 0
+    ? Math.round((totalEscalations / totalConversations) * 100)
+    : 0;
+  const aiResolvedRate = 100 - humanInterventionRate;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -28,48 +70,149 @@ export const AnalyticsMode = () => {
         ))}
       </div>
 
+      {/* Experience Trends & Knowledge Quality */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Experience Trends */}
         <section>
           <h2 className="text-sm font-medium text-foreground mb-4">Experience Trends</h2>
           <div className="space-y-4">
-            <TrendChart label="Overall Sentiment" value="87%" trend="up" />
-            <TrendChart label="Friction Rate" value="12%" trend="down" />
-            <TrendChart label="Human Intervention" value="8%" trend="stable" />
-          </div>
-        </section>
-
-        {/* Root Causes */}
-        <section>
-          <h2 className="text-sm font-medium text-foreground mb-4">Root Causes</h2>
-          <div className="space-y-3">
-            <RootCauseItem rank={1} label="Wi-Fi connectivity issues" count={24} />
-            <RootCauseItem rank={2} label="Check-in instructions unclear" count={18} />
-            <RootCauseItem rank={3} label="Heating/cooling questions" count={12} />
-            <RootCauseItem rank={4} label="Parking location" count={9} />
-            <RootCauseItem rank={5} label="Appliance usage" count={6} />
+            <TrendChart label="Friction Rate" value={`${humanInterventionRate}%`} trend={humanInterventionRate <= 10 ? 'down' : 'stable'} />
+            <TrendChart label="Human Intervention" value={`${humanInterventionRate}%`} trend={humanInterventionRate <= 8 ? 'down' : 'stable'} />
           </div>
         </section>
 
         {/* Knowledge Quality */}
         <section>
           <h2 className="text-sm font-medium text-foreground mb-4">Knowledge Quality</h2>
-          <div className="grid grid-cols-3 gap-4">
-            <KpiBox label="Question Coverage" value="94%" />
-            <KpiBox label="Doc Gaps" value="3" />
-            <KpiBox label="Repeated Questions" value="7" />
+          <div className="grid grid-cols-2 gap-4">
+            <KpiBox label="AI Resolution" value={`${aiResolvedRate}%`} />
+            <KpiBox label="Escalations" value={String(totalEscalations)} />
           </div>
         </section>
+      </div>
 
-        {/* Property Comparison */}
-        <section>
-          <h2 className="text-sm font-medium text-foreground mb-4">Property Comparison</h2>
-          <div className="space-y-2">
-            <PropertyRow name="Beach House #1" sentiment={92} friction={8} intervention={5} />
-            <PropertyRow name="Downtown Loft" sentiment={85} friction={15} intervention={12} />
-            <PropertyRow name="Mountain Cabin" sentiment={88} friction={10} intervention={8} />
+      {/* Top Issue Types & Resolution Performance */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Intents */}
+        <div className="bg-card rounded-xl border border-border p-6">
+          <h3 className="font-semibold text-foreground mb-6">Top Issue Types</h3>
+          {topIntents.length > 0 ? (
+            <div className="space-y-4">
+              {topIntents.slice(0, 5).map((item, index) => (
+                <div key={item.intent} className="flex items-center gap-4">
+                  <span className="w-6 text-center text-lg">{getIntentIcon(item.intent)}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-foreground font-medium">{getIntentLabel(item.intent)}</span>
+                      <span className="text-muted-foreground">{item.count} ({item.percentage}%)</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${item.percentage}%`,
+                          backgroundColor: index === 0 ? 'hsl(var(--critical))' : index === 1 ? 'hsl(var(--high))' : 'hsl(var(--primary))'
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No escalation data yet</p>
+          )}
+        </div>
+
+        {/* Resolution stats */}
+        <div className="bg-card rounded-xl border border-border p-6">
+          <h3 className="font-semibold text-foreground mb-6">Resolution Performance</h3>
+          <div className="grid grid-cols-2 gap-6">
+            <div className="text-center p-4 bg-success-muted rounded-xl">
+              <p className="text-4xl font-bold text-success mb-1">{aiResolvedRate}%</p>
+              <p className="text-sm text-muted-foreground">Resolved by AI</p>
+            </div>
+            <div className="text-center p-4 bg-muted rounded-xl">
+              <p className="text-4xl font-bold text-foreground mb-1">{humanInterventionRate}%</p>
+              <p className="text-sm text-muted-foreground">Needed Human</p>
+            </div>
+            <div className="text-center p-4 bg-muted rounded-xl">
+              <p className="text-4xl font-bold text-foreground mb-1">{insights?.total_conversations || 0}</p>
+              <p className="text-sm text-muted-foreground">Conversations</p>
+            </div>
+            <div className="text-center p-4 bg-muted rounded-xl">
+              <p className="text-4xl font-bold text-foreground mb-1">{totalEscalations}</p>
+              <p className="text-sm text-muted-foreground">Escalations</p>
+            </div>
           </div>
-        </section>
+        </div>
+      </div>
+
+      {/* Property Comparison */}
+      <section>
+        <h2 className="text-sm font-medium text-foreground mb-4">Property Comparison</h2>
+        <div className="bg-card rounded-xl border border-border p-4">
+          <div className="flex items-center gap-4 px-2 pb-2 border-b border-border text-xs text-muted-foreground">
+            <span className="flex-1">Property</span>
+            <span className="w-24 text-center">Conversations</span>
+            <span className="w-20 text-center">Friction</span>
+            <span className="w-20 text-center">Human %</span>
+          </div>
+          <div className="space-y-1 pt-2">
+            {properties.length > 0 ? (
+              properties.map((property) => {
+                const insight = perPropertyInsights?.get(property.id);
+                return (
+                  <PropertyRow
+                    key={property.id}
+                    name={property.name}
+                    conversations={insight?.totalConversations ?? 0}
+                    friction={insight?.frictionRate ?? 0}
+                    intervention={insight?.interventionRate ?? 0}
+                  />
+                );
+              })
+            ) : (
+              <p className="text-sm text-muted-foreground px-2 py-4">No properties</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Top Questions Table */}
+      <div className="bg-card rounded-xl border border-border p-6">
+        <h3 className="font-semibold text-foreground mb-4">Top Asked Questions</h3>
+        {topQuestions.length > 0 ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Question</TableHead>
+                <TableHead className="w-24 text-right">Asked</TableHead>
+                <TableHead className="w-24 text-right">Resolved</TableHead>
+                <TableHead className="w-32 text-right">Resolution Rate</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {topQuestions.map((item) => {
+                const rate = item.count > 0 ? Math.round((item.resolved / item.count) * 100) : 0;
+                return (
+                  <TableRow key={item.question}>
+                    <TableCell className="font-medium">{item.question}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{item.count}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{item.resolved}</TableCell>
+                    <TableCell className="text-right">
+                      <span className={rate >= 90 ? 'text-success' : rate >= 70 ? 'text-high' : 'text-critical'}>
+                        {rate}%
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        ) : (
+          <p className="text-sm text-muted-foreground">No question patterns recorded yet. Run the aggregation pipeline to generate insights.</p>
+        )}
       </div>
     </div>
   );
@@ -82,19 +225,11 @@ const TrendChart = ({ label, value, trend }: { label: string; value: string; tre
       <span className="font-medium">{value}</span>
       <span className={cn(
         'text-xs',
-        trend === 'up' ? 'text-success' : trend === 'down' ? 'text-critical' : 'text-muted-foreground'
+        trend === 'up' ? 'text-success' : trend === 'down' ? 'text-success' : 'text-muted-foreground'
       )}>
         {trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→'}
       </span>
     </div>
-  </div>
-);
-
-const RootCauseItem = ({ rank, label, count }: { rank: number; label: string; count: number }) => (
-  <div className="flex items-center gap-3 text-sm">
-    <span className="text-muted-foreground w-4">{rank}.</span>
-    <span className="flex-1 text-foreground">{label}</span>
-    <span className="text-muted-foreground">{count} mentions</span>
   </div>
 );
 
@@ -105,11 +240,11 @@ const KpiBox = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-const PropertyRow = ({ name, sentiment, friction, intervention }: { name: string; sentiment: number; friction: number; intervention: number }) => (
-  <div className="flex items-center gap-4 p-2 rounded-md bg-muted/20 text-sm">
-    <span className="flex-1 text-foreground">{name}</span>
-    <span className={cn('w-16 text-center', sentiment >= 90 ? 'text-success' : 'text-warning')}>{sentiment}%</span>
-    <span className={cn('w-16 text-center', friction <= 10 ? 'text-success' : 'text-warning')}>{friction}%</span>
-    <span className={cn('w-16 text-center', intervention <= 8 ? 'text-success' : 'text-warning')}>{intervention}%</span>
+const PropertyRow = ({ name, conversations, friction, intervention }: { name: string; conversations: number; friction: number; intervention: number }) => (
+  <div className="flex items-center gap-4 p-2 rounded-md hover:bg-muted/20 text-sm">
+    <span className="flex-1 text-foreground truncate">{name}</span>
+    <span className="w-24 text-center text-muted-foreground">{conversations}</span>
+    <span className={cn('w-20 text-center', friction <= 10 ? 'text-success' : 'text-warning')}>{friction}%</span>
+    <span className={cn('w-20 text-center', intervention <= 8 ? 'text-success' : 'text-warning')}>{intervention}%</span>
   </div>
 );
