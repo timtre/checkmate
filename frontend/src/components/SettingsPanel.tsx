@@ -57,8 +57,9 @@ export default function SettingsPanel({ propertyId, propertyName, onNameUpdated,
     }
   }
 
+  const guestAppUrl = import.meta.env.VITE_GUEST_APP_URL || "http://localhost:8080";
   const guestLink = tokenResult
-    ? `${window.location.origin}/chat/${tokenResult.token}`
+    ? `${guestAppUrl}/chat/${tokenResult.token}`
     : null;
 
   function handleCopy() {

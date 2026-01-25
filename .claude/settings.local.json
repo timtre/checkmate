@@ -19,7 +19,9 @@
       "Bash(npm install:*)",
       "mcp__supabase__apply_migration",
       "mcp__supabase__execute_sql",
-      "mcp__tower__tower_file_add_parameter"
+      "mcp__tower__tower_file_add_parameter",
+      "Bash(npm run lint)",
+      "WebFetch(domain:tower.dev)"
     ]
   }
 }

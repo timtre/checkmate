@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, Calendar, MapPin } from "lucide-react";
+import { Calendar, MapPin } from "lucide-react";
 import { PhaseSelector, StayPhase } from "@/components/stay/PhaseSelector";
 import { EmergencyContact } from "@/components/stay/EmergencyContact";
 import { PreArrivalPhase } from "@/components/stay/phases/PreArrivalPhase";
@@ -9,9 +9,15 @@ import { First30MinsPhase } from "@/components/stay/phases/First30MinsPhase";
 import { DuringStayPhase } from "@/components/stay/phases/DuringStayPhase";
 import { CheckOutPhase } from "@/components/stay/phases/CheckOutPhase";
 import { PostStayPhase } from "@/components/stay/phases/PostStayPhase";
-import { BottomNav } from "@/components/layout/BottomNav";
-export default function StayOverviewPage() {
+
+interface StayViewProps {
+  propertyName: string;
+  children?: ReactNode;
+}
+
+export function StayView({ propertyName, children }: StayViewProps) {
   const [activePhase, setActivePhase] = useState<StayPhase>("arrival");
+
   const renderPhaseContent = () => {
     switch (activePhase) {
       case "pre-arrival":
@@ -23,27 +29,34 @@ export default function StayOverviewPage() {
       case "during-stay":
         return <DuringStayPhase />;
       case "check-out":
-        return <CheckOutPhase />;
+        return <CheckOutPhase propertyName={propertyName} />;
       case "post-stay":
-        return <PostStayPhase />;
+        return <PostStayPhase propertyName={propertyName} />;
       default:
         return <ArrivalPhase />;
     }
   };
-  return <div className="min-h-screen bg-background pb-24 max-w-lg mx-auto">
+
+  return (
+    <div className="min-h-screen bg-background pb-24 max-w-lg mx-auto">
       {/* Property Header */}
-      <motion.div initial={{
-      opacity: 0
-    }} animate={{
-      opacity: 1
-    }} transition={{
-      duration: 0.4
-    }} className="bg-white border-b border-border">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        className="bg-white border-b border-border"
+      >
         <div className="w-full h-80 overflow-hidden">
-          <img src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&q=80" alt="Coastal Haven property" className="w-full h-full object-cover" />
+          <img
+            src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&q=80"
+            alt={`${propertyName} property`}
+            className="w-full h-full object-cover"
+          />
         </div>
         <div className="px-4 py-6 flex flex-col gap-1.5">
-          <h1 className="font-display font-semibold text-foreground text-2xl">Coastal Haven</h1>
+          <h1 className="font-display font-semibold text-foreground text-2xl">
+            {propertyName}
+          </h1>
           <div className="flex flex-row gap-2">
             <div className="flex items-center gap-1 text-muted-foreground text-lg">
               <MapPin className="h-4" />
@@ -58,15 +71,12 @@ export default function StayOverviewPage() {
       </motion.div>
 
       {/* Phase Selector */}
-      <motion.div initial={{
-      opacity: 0,
-      y: 10
-    }} animate={{
-      opacity: 1,
-      y: 0
-    }} transition={{
-      delay: 0.1
-    }} className="mt-4 mb-4">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="mt-4 mb-4"
+      >
         <PhaseSelector activePhase={activePhase} onPhaseChange={setActivePhase} />
       </motion.div>
 
@@ -82,6 +92,7 @@ export default function StayOverviewPage() {
         <EmergencyContact />
       </div>
 
-      <BottomNav />
-    </div>;
+      {children}
+    </div>
+  );
 }

@@ -7,6 +7,6 @@ venv/
 dist/
 build/
 .pytest_cache/
-.mcp.json
+.mcp*.json
 frontend/node_modules/
 frontend/dist/

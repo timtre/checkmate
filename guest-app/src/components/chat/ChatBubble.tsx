@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ConciergeAvatar } from "./ConciergeAvatar";
 import { Check, CheckCheck } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 interface ChatBubbleProps {
   message: string;
@@ -9,22 +10,36 @@ interface ChatBubbleProps {
   timestamp?: string;
   showAvatar?: boolean;
   isLatest?: boolean;
+  escalated?: boolean;
 }
 
-export function ChatBubble({ message, type, timestamp, showAvatar = true, isLatest }: ChatBubbleProps) {
+export function ChatBubble({ message, type, timestamp, showAvatar = true, isLatest, escalated }: ChatBubbleProps) {
   const isGuest = type === "guest";
   const isSystem = type === "system";
 
   if (isSystem) {
     return (
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="flex justify-center my-4"
+        initial={{ opacity: 0, y: 15, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+        className="flex w-full mb-4 gap-3 justify-start"
       >
-        <div className="bg-chat-system text-chat-system-foreground text-xs font-medium px-4 py-2 rounded-full">
-          {message}
+        {showAvatar && <ConciergeAvatar size="sm" />}
+
+        <div className={cn("max-w-[75%] relative", !showAvatar && "ml-11")}>
+          <span className="text-[11px] font-semibold text-blue-600 mb-0.5 pl-1 block">
+            Property Manager
+          </span>
+          <div className="px-4 py-3 rounded-2xl rounded-bl-md bg-blue-50 text-foreground shadow-soft border border-blue-100">
+            <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{message}</p>
+          </div>
+
+          {timestamp && (
+            <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground justify-start">
+              <span>{timestamp}</span>
+            </div>
+          )}
         </div>
       </motion.div>
     );
@@ -56,20 +71,32 @@ export function ChatBubble({ message, type, timestamp, showAvatar = true, isLate
           <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{message}</p>
         </div>
         
-        {timestamp && (
+        {(timestamp || (!isGuest && escalated)) && (
           <div
             className={cn(
               "flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground",
               isGuest ? "justify-end" : "justify-start"
             )}
           >
-            <span>{timestamp}</span>
+            {timestamp && <span>{timestamp}</span>}
             {isGuest && (
               isLatest ? (
                 <Check className="w-3.5 h-3.5" />
               ) : (
                 <CheckCheck className="w-3.5 h-3.5 text-primary" />
               )
+            )}
+            {!isGuest && escalated && (
+              <Tooltip delayDuration={100}>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 cursor-help">
+                    Escalated
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>A property manager has been notified and will follow up shortly.</p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
         )}

@@ -3,7 +3,11 @@ import { Clock, KeyRound, Sparkles, Briefcase, LogOut, HelpCircle } from "lucide
 import { InfoCard } from "@/components/ui/InfoCard";
 import { ScrollProgressBar } from "@/components/stay/ScrollProgressBar";
 
-export function CheckOutPhase() {
+interface CheckOutPhaseProps {
+  propertyName: string;
+}
+
+export function CheckOutPhase({ propertyName }: CheckOutPhaseProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -25,7 +29,7 @@ export function CheckOutPhase() {
           Time to check out
         </h3>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          Thank you for staying at Coastal Haven. Safe travels, and we hope to welcome you again soon. If you need anything after check-out, I'm here to help.
+          Thank you for staying at {propertyName}. Safe travels, and we hope to welcome you again soon. If you need anything after check-out, I'm here to help.
         </p>
       </motion.div>
 

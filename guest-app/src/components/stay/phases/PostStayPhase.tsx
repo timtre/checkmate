@@ -5,7 +5,11 @@ import { ScrollProgressBar } from "@/components/stay/ScrollProgressBar";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
-export function PostStayPhase() {
+interface PostStayPhaseProps {
+  propertyName: string;
+}
+
+export function PostStayPhase({ propertyName }: PostStayPhaseProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -25,7 +29,7 @@ export function PostStayPhase() {
         </div>
         <h3 className="font-display text-xl font-semibold text-foreground mb-2">Thank you for staying!</h3>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          We hope you had a wonderful time at Coastal Haven. Safe travels, and we hope to see you again soon!
+          We hope you had a wonderful time at {propertyName}. Safe travels, and we hope to see you again soon!
         </p>
       </motion.div>
 
@@ -36,7 +40,7 @@ export function PostStayPhase() {
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Property</span>
-              <span className="font-medium text-foreground">Coastal Haven</span>
+              <span className="font-medium text-foreground">{propertyName}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Dates</span>

@@ -1,6 +1,9 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Send, Smile } from "lucide-react";
+import data from "@emoji-mart/data";
+import Picker from "@emoji-mart/react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -8,8 +11,13 @@ interface ChatInputProps {
   disabled?: boolean;
 }
 
+interface EmojiData {
+  native: string;
+}
+
 export function ChatInput({ onSend, placeholder = "Type a message...", disabled }: ChatInputProps) {
   const [message, setMessage] = useState("");
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -18,6 +26,12 @@ export function ChatInput({ onSend, placeholder = "Type a message...", disabled 
       onSend(message.trim());
       setMessage("");
     }
+  };
+
+  const handleEmojiSelect = (emoji: EmojiData) => {
+    setMessage((prev) => prev + emoji.native);
+    setEmojiOpen(false);
+    inputRef.current?.focus();
   };
 
   return (
@@ -38,14 +52,33 @@ export function ChatInput({ onSend, placeholder = "Type a message...", disabled 
           disabled={disabled}
           className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground text-[15px] outline-none"
         />
-        <button
-          type="button"
-          className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Smile className="h-5 w-5" />
-        </button>
+        <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Smile className="h-5 w-5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            side="top"
+            align="end"
+            className="w-auto p-0 border-none shadow-lg"
+            sideOffset={10}
+          >
+            <Picker
+              data={data}
+              onEmojiSelect={handleEmojiSelect}
+              theme="light"
+              previewPosition="none"
+              skinTonePosition="none"
+              maxFrequentRows={2}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
-      
+
       <motion.button
         type="submit"
         disabled={!message.trim() || disabled}
