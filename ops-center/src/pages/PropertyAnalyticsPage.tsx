@@ -27,10 +27,10 @@ import {
 import { Building2, Loader2 } from 'lucide-react';
 
 const PropertyAnalyticsPage = () => {
-  const { scope, selectedProperty } = usePropertyScope();
+  const { selectedProperty } = usePropertyScope();
 
-  // Redirect to portfolio if no property selected
-  if (scope !== 'property' || !selectedProperty) {
+  // Redirect to all properties view if no property selected
+  if (!selectedProperty) {
     return <Navigate to="/analytics" replace />;
   }
 

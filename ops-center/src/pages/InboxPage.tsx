@@ -8,10 +8,10 @@ import { Loader2 } from 'lucide-react';
 
 const InboxPage = () => {
   const [activeTab, setActiveTab] = useState('urgent');
-  const { properties, scope, selectedProperty } = usePropertyScope();
+  const { properties, selectedProperty, isPropertyView } = usePropertyScope();
 
-  // Get property IDs based on scope
-  const propertyIds = scope === 'property' && selectedProperty
+  // Get property IDs based on view
+  const propertyIds = isPropertyView && selectedProperty
     ? [selectedProperty.id]
     : properties.map((p) => p.id);
 
@@ -59,7 +59,7 @@ const InboxPage = () => {
         <div>
           <h1 className="text-xl font-semibold text-foreground">Escalations</h1>
           <p className="text-sm text-muted-foreground">
-            {scope === 'property' && selectedProperty
+            {isPropertyView && selectedProperty
               ? selectedProperty.name
               : 'All properties'}
           </p>

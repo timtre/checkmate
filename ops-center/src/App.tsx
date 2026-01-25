@@ -23,13 +23,13 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            {/* Portfolio scope routes */}
+            {/* All Properties view routes */}
             <Route path="/" element={<Index />} />
             <Route path="/escalations" element={<InboxPage />} />
             <Route path="/escalation/:id" element={<EscalationDetailPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
-            
-            {/* Property scope routes */}
+
+            {/* Property view routes */}
             <Route path="/property" element={<PropertyOverviewPage />} />
             <Route path="/property/knowledge" element={<KnowledgeBasePage />} />
             <Route path="/property/analytics" element={<PropertyAnalyticsPage />} />

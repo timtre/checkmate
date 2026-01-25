@@ -7,10 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Upload, Building2 } from 'lucide-react';
 
 const KnowledgeBasePage = () => {
-  const { scope, selectedProperty, selectProperty, properties } = usePropertyScope();
+  const { selectedProperty, selectProperty, properties } = usePropertyScope();
 
-  // If accessed directly without property scope, prompt to select property
-  if (scope !== 'property' || !selectedProperty) {
+  // If accessed directly without property selected, prompt to select property
+  if (!selectedProperty) {
     return (
       <AppShell>
         <div className="space-y-6 animate-fade-in max-w-md mx-auto py-12">

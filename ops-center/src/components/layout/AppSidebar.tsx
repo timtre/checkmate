@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronRight, MapPin } from 'lucide-react';
 import { usePropertyScope } from '@/contexts/PropertyScopeContext';
 import { useAllEscalations } from '@/lib/api';
 
@@ -11,7 +11,6 @@ interface NavItemProps {
   badge?: number;
   active?: boolean;
   onClick?: () => void;
-  indent?: boolean;
 }
 
 function NavItem({
@@ -19,8 +18,7 @@ function NavItem({
   label,
   badge,
   active,
-  onClick,
-  indent
+  onClick
 }: NavItemProps) {
   return (
     <Link
@@ -28,7 +26,6 @@ function NavItem({
       onClick={onClick}
       className={cn(
         'flex items-center justify-between px-3 py-2 rounded-md text-sm transition-smooth',
-        indent && 'ml-3',
         active
           ? 'text-foreground font-medium bg-accent'
           : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
@@ -52,17 +49,39 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+interface PropertyListItemProps {
+  name: string;
+  onClick: () => void;
+  isSelected?: boolean;
+}
+
+function PropertyListItem({ name, onClick, isSelected }: PropertyListItemProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-smooth',
+        isSelected
+          ? 'text-foreground font-medium bg-accent'
+          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+      )}
+    >
+      <span className="truncate">{name}</span>
+      <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-50" />
+    </button>
+  );
+}
+
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const {
-    scope,
     selectedProperty,
     selectProperty,
-    exitPropertyScope,
-    properties
+    clearSelectedProperty,
+    properties,
+    isPropertyView
   } = usePropertyScope();
-  const [isPropertyOpen, setIsPropertyOpen] = React.useState(false);
 
   // Fetch escalations to get urgent count
   const propertyIds = properties.map(p => p.id);
@@ -72,24 +91,23 @@ export function AppSidebar() {
     e => e.pmActionType === 'NOTIFY_PM_URGENT' && e.status !== 'resolved' && e.status !== 'closed'
   ).length;
 
-  const isPropertyScope = scope === 'property';
-
-  // Determine active nav item
-  const isPortfolioDashboard = location.pathname === '/';
+  // Determine active nav item - All Properties view
+  const isDashboard = location.pathname === '/';
   const isEscalations = location.pathname.startsWith('/escalations') || location.pathname.startsWith('/escalation/');
   const isPortfolioAnalytics = location.pathname === '/analytics';
+
+  // Determine active nav item - Property view
   const isPropertyOverview = location.pathname === '/property';
   const isKnowledgeBase = location.pathname === '/property/knowledge';
   const isPropertyAnalytics = location.pathname === '/property/analytics';
 
   const handlePropertySelect = (property: typeof properties[0]) => {
     selectProperty(property);
-    setIsPropertyOpen(false);
     navigate('/property');
   };
 
-  const handleExitPropertyScope = () => {
-    exitPropertyScope();
+  const handleBackToAllProperties = () => {
+    clearSelectedProperty();
     navigate('/');
   };
 
@@ -100,80 +118,65 @@ export function AppSidebar() {
         <span className="font-semibold text-foreground">StayMate</span>
       </div>
 
-      {/* Scope Indicator */}
-      {isPropertyScope && selectedProperty && (
-        <div className="px-3 py-3 border-b border-sidebar-border">
-          <button
-            onClick={handleExitPropertyScope}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-2 transition-smooth"
-          >
-            &larr; Portfolio
-          </button>
-          <p className="text-sm font-medium text-foreground truncate">
-            {selectedProperty.name}
-          </p>
-        </div>
-      )}
-
       {/* Navigation */}
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-        {/* Portfolio Section */}
-        <SectionLabel>Portfolio</SectionLabel>
+        {isPropertyView && selectedProperty ? (
+          /* Property View Navigation */
+          <>
+            {/* Back button */}
+            <button
+              onClick={handleBackToAllProperties}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-smooth mb-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>All Properties</span>
+            </button>
 
-        <NavItem href="/" label="Dashboard" active={isPortfolioDashboard} />
-        <NavItem href="/escalations" label="Escalations" badge={urgentCount} active={isEscalations} />
-        <NavItem href="/analytics" label="Analytics" active={isPortfolioAnalytics} />
+            {/* Property card */}
+            <div className="mx-1 mb-4 p-3 rounded-lg bg-accent/50 border border-border/50">
+              <p className="text-sm font-semibold text-foreground truncate">
+                {selectedProperty.name}
+              </p>
+              {selectedProperty.address && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 truncate">
+                  <MapPin className="w-3 h-3 flex-shrink-0" />
+                  {selectedProperty.address}
+                </p>
+              )}
+            </div>
 
-        {/* Divider */}
-        <div className="my-3 border-t border-sidebar-border" />
+            {/* Property-specific nav */}
+            <NavItem href="/property" label="Overview" active={isPropertyOverview} />
+            <NavItem href="/property/knowledge" label="Knowledge Base" active={isKnowledgeBase} />
+            <NavItem href="/property/analytics" label="Analytics" active={isPropertyAnalytics} />
+          </>
+        ) : (
+          /* All Properties View Navigation */
+          <>
+            {/* Main nav items */}
+            <NavItem href="/" label="Dashboard" active={isDashboard} />
+            <NavItem href="/escalations" label="Escalations" badge={urgentCount} active={isEscalations} />
+            <NavItem href="/analytics" label="Analytics" active={isPortfolioAnalytics} />
 
-        {/* Properties Section */}
-        <SectionLabel>Properties</SectionLabel>
+            {/* Divider */}
+            <div className="my-3 border-t border-sidebar-border" />
 
-        {/* Property Selector */}
-        <button
-          onClick={() => setIsPropertyOpen(!isPropertyOpen)}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-smooth"
-        >
-          <span className="truncate">
-            {selectedProperty?.name || 'Select property'}
-          </span>
-          {isPropertyOpen ? (
-            <ChevronDown className="w-4 h-4 flex-shrink-0" />
-          ) : (
-            <ChevronRight className="w-4 h-4 flex-shrink-0" />
-          )}
-        </button>
+            {/* Properties list */}
+            <SectionLabel>Properties</SectionLabel>
 
-        {isPropertyOpen && (
-          <div className="mt-1 py-1 rounded-md bg-accent/50 animate-fade-in">
-            {properties.map(property => (
-              <button
-                key={property.id}
-                onClick={() => handlePropertySelect(property)}
-                className={cn(
-                  'w-full px-3 py-1.5 text-left text-sm hover:bg-accent transition-smooth',
-                  selectedProperty?.id === property.id
-                    ? 'text-foreground font-medium'
-                    : 'text-muted-foreground'
-                )}
-              >
-                {property.name}
-              </button>
-            ))}
-            {properties.length === 0 && (
-              <p className="px-3 py-1.5 text-sm text-muted-foreground">No properties</p>
+            {properties.length > 0 ? (
+              properties.map(property => (
+                <PropertyListItem
+                  key={property.id}
+                  name={property.name}
+                  onClick={() => handlePropertySelect(property)}
+                  isSelected={selectedProperty?.id === property.id}
+                />
+              ))
+            ) : (
+              <p className="px-3 py-2 text-sm text-muted-foreground">No properties</p>
             )}
-          </div>
-        )}
-
-        {/* Property scope navigation */}
-        {isPropertyScope && selectedProperty && (
-          <div className="mt-1 space-y-0.5">
-            <NavItem href="/property" label="Overview" active={isPropertyOverview} indent />
-            <NavItem href="/property/knowledge" label="Knowledge Base" active={isKnowledgeBase} indent />
-            <NavItem href="/property/analytics" label="Analytics" active={isPropertyAnalytics} indent />
-          </div>
+          </>
         )}
       </nav>
     </aside>
