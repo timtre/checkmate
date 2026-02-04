@@ -73,10 +73,7 @@ const Index = () => {
                 {/* Needs Attention - Top section */}
                 <section>
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-medium text-foreground flex items-center gap-2">
-                      {needsAttention.length > 0 && (
-                        <span className="w-2 h-2 rounded-full bg-warning" />
-                      )}
+                    <h2 className="text-sm font-medium text-foreground">
                       Needs attention now
                     </h2>
                     {needsAttention.length > 0 && (

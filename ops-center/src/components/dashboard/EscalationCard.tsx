@@ -40,26 +40,30 @@ const extractIssueTag = (summary: string): string => {
     }
   }
 
-  // Fallback: use first few words capitalized
-  return summary.split(' ').slice(0, 3).join(' ');
+  // Fallback: extract text before the em-dash, or use first few words
+  const beforeDash = summary.split('—')[0].trim();
+  return beforeDash || summary.split(' ').slice(0, 3).join(' ');
 };
 
 const getSentimentStyles = (priority: string, satisfaction: string) => {
+  // Critical: red - safety, urgent maintenance, unhappy guests
   if (satisfaction === 'unhappy' || priority === 'critical') {
     return {
       dot: 'bg-[hsl(var(--critical))]',
       bg: 'bg-[hsl(var(--critical-pastel))]',
     };
   }
+  // High: orange - access issues, low confidence
   if (priority === 'high') {
     return {
-      dot: 'bg-[hsl(var(--warning))]',
+      dot: 'bg-[hsl(var(--high))]',
       bg: 'bg-[hsl(var(--warning-pastel))]',
     };
   }
+  // Medium: purple - information gaps, general inquiries
   return {
-    dot: 'bg-[hsl(var(--success))]',
-    bg: 'bg-[hsl(var(--success-pastel))]',
+    dot: 'bg-[hsl(var(--info))]',
+    bg: 'bg-[hsl(var(--info-pastel))]',
   };
 };
 

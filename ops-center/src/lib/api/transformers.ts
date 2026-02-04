@@ -22,16 +22,28 @@ import type {
 // ===== Priority Derivation =====
 
 export function derivePriority(confidence: number, reason: string): Priority {
+  // Critical: safety issues, urgent maintenance, or very low confidence
+  if (reason === 'safety' || reason === 'maintenance_urgent') return 'critical';
   if (confidence < 0.3 || reason === 'dissatisfied') return 'critical';
+  // High: access issues, low confidence
+  if (reason === 'access_blocked') return 'high';
   if (confidence < 0.5 || reason === 'low_confidence') return 'high';
+  // Medium: information gaps, repeated questions
   return 'medium';
 }
 
 // ===== PM Action Type Derivation =====
 
 export function derivePmActionType(reason: string, confidence: number): EscalationType {
+  // Urgent: safety, access blocked, urgent maintenance, dissatisfied, or very low confidence
+  if (reason === 'safety' || reason === 'access_blocked' || reason === 'maintenance_urgent') {
+    return 'NOTIFY_PM_URGENT';
+  }
   if (reason === 'dissatisfied' || confidence < 0.3) return 'NOTIFY_PM_URGENT';
-  if (reason === 'repeated_question' || reason === 'knowledge_gap') return 'REQUEST_PM_INPUT';
+  // Request input: knowledge gaps, repeated questions
+  if (reason === 'repeated_question' || reason === 'repeated_unanswered' || reason === 'knowledge_gap' || reason === 'cannot_answer') {
+    return 'REQUEST_PM_INPUT';
+  }
   return 'NOTIFY_PM_PASSIVE';
 }
 
@@ -178,10 +190,17 @@ function generateSummary(item: EscalationItem, intent: Intent): string {
   };
 
   const reasonLabels: Record<string, string> = {
+    // Current reasons
+    safety: 'safety concern',
+    access_blocked: 'access blocked',
+    maintenance_urgent: 'urgent maintenance',
+    dissatisfied: 'guest dissatisfaction',
+    cannot_answer: 'unable to answer',
+    repeated_unanswered: 'repeated question',
+    // Legacy reasons (backwards compatibility)
     low_confidence: 'low AI confidence',
-    dissatisfied: 'guest dissatisfaction detected',
+    knowledge_gap: 'knowledge gap',
     repeated_question: 'repeated question',
-    knowledge_gap: 'knowledge gap detected',
   };
 
   const reasonText = reasonLabels[item.reason] || item.reason;

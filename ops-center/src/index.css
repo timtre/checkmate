@@ -64,6 +64,13 @@
     --success-pastel: 145 45% 92%;
     --success-pastel-text: 145 50% 30%;
 
+    /* Info/Medium - Soft purple pastel */
+    --info: 262 50% 55%;
+    --info-foreground: 0 0% 100%;
+    --info-muted: 262 40% 97%;
+    --info-pastel: 262 45% 94%;
+    --info-pastel-text: 262 50% 40%;
+
     /* Neutral metric chip */
     --metric-neutral: 220 15% 95%;
     --metric-neutral-text: 220 15% 40%;
@@ -126,7 +133,11 @@
     --success-muted: 142 40% 12%;
     --success-pastel: 145 40% 15%;
     --success-pastel-text: 145 50% 65%;
-    
+
+    --info-muted: 262 40% 12%;
+    --info-pastel: 262 35% 20%;
+    --info-pastel-text: 262 50% 75%;
+
     --metric-neutral: 220 12% 18%;
     --metric-neutral-text: 220 10% 70%;
 
