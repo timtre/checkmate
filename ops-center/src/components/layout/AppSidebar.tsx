@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
 import { usePropertyScope } from '@/contexts/PropertyScopeContext';
 import { useAllEscalations } from '@/lib/api';
+import { CreatePropertySheet } from '@/components/CreatePropertySheet';
 
 interface NavItemProps {
   href: string;
@@ -83,6 +84,8 @@ export function AppSidebar() {
     isPropertyView
   } = usePropertyScope();
 
+  const [createSheetOpen, setCreateSheetOpen] = useState(false);
+
   // Fetch escalations to get urgent count
   const propertyIds = properties.map(p => p.id);
   const { data: escalations = [] } = useAllEscalations(propertyIds);
@@ -161,9 +164,23 @@ export function AppSidebar() {
             ) : (
               <p className="px-3 py-2 text-sm text-muted-foreground">No properties</p>
             )}
+
+            {/* Add New Property Button */}
+            <button
+              onClick={() => setCreateSheetOpen(true)}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-smooth mt-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Property</span>
+            </button>
           </>
         )}
       </nav>
+
+      <CreatePropertySheet
+        open={createSheetOpen}
+        onOpenChange={setCreateSheetOpen}
+      />
     </aside>
   );
 }

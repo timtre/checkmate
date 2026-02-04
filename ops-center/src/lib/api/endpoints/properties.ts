@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch, BASE_URL } from '../client';
-import type { PropertiesListResponse } from '../types';
+import type { PropertiesListResponse, PropertyCreateRequest, PropertyCreateResponse } from '../types';
 import { mapBackendProperty } from '../transformers';
 import type { Property } from '../../mockData';
 
@@ -41,6 +41,15 @@ export async function uploadPropertyImage(
   return res.json();
 }
 
+export async function createProperty(
+  data: PropertyCreateRequest
+): Promise<PropertyCreateResponse> {
+  return apiFetch<PropertyCreateResponse>('/properties', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 // ===== React Query Hooks =====
 
 export function useProperties() {
@@ -74,6 +83,18 @@ export function useUploadPropertyImage() {
       uploadPropertyImage(propertyId, file),
     onSuccess: () => {
       // Invalidate properties to refetch with new image URL
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+    },
+  });
+}
+
+export function useCreateProperty() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: PropertyCreateRequest) => createProperty(data),
+    onSuccess: () => {
+      // Invalidate properties to refetch with new property
       queryClient.invalidateQueries({ queryKey: ['properties'] });
     },
   });

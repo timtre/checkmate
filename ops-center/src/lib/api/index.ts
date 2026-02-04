@@ -7,6 +7,8 @@ export { apiFetch, ApiError, BASE_URL } from './client';
 export type {
   PropertyItem,
   PropertiesListResponse,
+  PropertyCreateRequest,
+  PropertyCreateResponse,
   EscalationItem,
   EscalationsListResponse,
   EscalationReplyResponse,
@@ -54,9 +56,11 @@ export {
 export {
   getProperties,
   uploadPropertyImage,
+  createProperty,
   useProperties,
   useProperty,
   useUploadPropertyImage,
+  useCreateProperty,
   type ImageUploadResponse,
 } from './endpoints/properties';
 

@@ -13,6 +13,17 @@ export interface PropertiesListResponse {
   properties: PropertyItem[];
 }
 
+export interface PropertyCreateRequest {
+  property_id: string;
+  name: string;
+}
+
+export interface PropertyCreateResponse {
+  property_id: string;
+  name: string;
+  image_url: string;
+}
+
 // ===== Escalations =====
 
 export interface EscalationItem {
