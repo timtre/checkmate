@@ -487,11 +487,23 @@ class Persistence:
             .eq("property_id", property_id)
             .execute()
         )
+        # Count unique conversations that had escalations (for accurate intervention rate)
+        escs_by_conv = (
+            _get_supabase()
+            .table("escalations")
+            .select("conversation_id")
+            .eq("property_id", property_id)
+            .execute()
+        )
+        unique_escalated_convs = len(
+            set(row["conversation_id"] for row in escs_by_conv.data if row.get("conversation_id"))
+        )
 
         return {
             "total_conversations": convs.count or 0,
             "total_messages": msgs.count or 0,
             "total_escalations": escs.count or 0,
+            "conversations_with_escalations": unique_escalated_convs,
         }
 
     # --- Knowledge Base Suggestions ---

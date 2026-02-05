@@ -95,6 +95,7 @@ export interface InsightsResponse {
   total_conversations: number;
   total_messages: number;
   total_escalations: number;
+  conversations_with_escalations: number;  // unique conversations that had at least one escalation
   most_asked: QuestionInsight[];
   worst_answered: QuestionInsight[];
   escalation_themes: EscalationInsight[];

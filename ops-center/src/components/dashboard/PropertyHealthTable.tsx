@@ -113,9 +113,9 @@ export const PropertyHealthTable = () => {
       const totalConversations = insights?.total_conversations || 0;
       const totalEscalations = propertyEscalations.length;
       const humanInterventionRate = totalConversations > 0
-        ? Math.min(100, Math.round((totalEscalations / totalConversations) * 100))
+        ? Math.max(0, Math.min(100, Math.round((totalEscalations / totalConversations) * 100)))
         : (totalEscalations > 0 ? 100 : 0);
-      const autoReplyRate = 100 - humanInterventionRate;
+      const autoReplyRate = Math.max(0, Math.min(100, 100 - humanInterventionRate));
       const frictionRate = humanInterventionRate;
 
       return {

@@ -90,8 +90,9 @@ export function AppSidebar() {
   const propertyIds = properties.map(p => p.id);
   const { data: escalations = [] } = useAllEscalations(propertyIds);
 
-  const urgentCount = escalations.filter(
-    e => e.pmActionType === 'NOTIFY_PM_URGENT' && e.status !== 'resolved' && e.status !== 'closed'
+  // Count all open escalations (not just urgent ones)
+  const openCount = escalations.filter(
+    e => e.status === 'open'
   ).length;
 
   // Determine active nav item - All Properties view
@@ -142,7 +143,7 @@ export function AppSidebar() {
           <>
             {/* Main nav items */}
             <NavItem href="/" label="Dashboard" active={isDashboard} />
-            <NavItem href="/escalations" label="Escalations" badge={urgentCount} active={isEscalations} />
+            <NavItem href="/escalations" label="Escalations" badge={openCount} active={isEscalations} />
 
             {/* Divider */}
             <div className="my-3 border-t border-sidebar-border" />

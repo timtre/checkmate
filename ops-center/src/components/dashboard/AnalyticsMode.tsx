@@ -33,13 +33,33 @@ export const AnalyticsMode = () => {
 
   const isLoading = intentsLoading || questionsLoading || insightsLoading;
 
-  // Calculate resolution stats from insights
-  const totalEscalations = insights?.total_escalations || 0;
-  const totalConversations = insights?.total_conversations || 1;
+  // Calculate resolution stats from per-property insights for consistency
+  // (useAllInsights can return stale/inconsistent data)
+  const aggregateFromPerProperty = () => {
+    if (!perPropertyInsights || perPropertyInsights.size === 0) {
+      return { totalConversations: 0, totalEscalations: 0, conversationsWithEscalations: 0 };
+    }
+    let totalConversations = 0;
+    let totalEscalations = 0;
+    let conversationsWithEscalations = 0;
+    for (const insight of perPropertyInsights.values()) {
+      totalConversations += insight.totalConversations;
+      totalEscalations += insight.totalEscalations;
+      conversationsWithEscalations += insight.conversationsWithEscalations;
+    }
+    return { totalConversations, totalEscalations, conversationsWithEscalations };
+  };
+
+  const aggregated = aggregateFromPerProperty();
+  const totalEscalations = aggregated.totalEscalations;
+  const totalConversations = aggregated.totalConversations;
+  // Use conversationsWithEscalations for accurate intervention rate (not total escalation count)
   const humanInterventionRate = totalConversations > 0
-    ? Math.round((totalEscalations / totalConversations) * 100)
+    ? Math.max(0, Math.min(100, Math.round((aggregated.conversationsWithEscalations / totalConversations) * 100)))
     : 0;
-  const aiResolvedRate = 100 - humanInterventionRate;
+  const aiResolvedRate = totalConversations > 0
+    ? Math.max(0, Math.min(100, 100 - humanInterventionRate))
+    : 0;
 
   if (isLoading) {
     return (
@@ -137,7 +157,7 @@ export const AnalyticsMode = () => {
               <p className="text-sm text-muted-foreground">Needed Human</p>
             </div>
             <div className="text-center p-4 bg-muted rounded-xl">
-              <p className="text-4xl font-bold text-foreground mb-1">{insights?.total_conversations || 0}</p>
+              <p className="text-4xl font-bold text-foreground mb-1">{totalConversations}</p>
               <p className="text-sm text-muted-foreground">Conversations</p>
             </div>
             <div className="text-center p-4 bg-muted rounded-xl">

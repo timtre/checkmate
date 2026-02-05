@@ -54,22 +54,54 @@ def append_document(
     category: str | None = None,
     metadata: dict | None = None,
 ) -> tuple[str, int]:
-    """Append a new document to the property's knowledge base without removing existing ones."""
+    """Append content to the property's existing knowledge base document.
+
+    If a document exists, appends the new content as a new section.
+    If no document exists, creates a new one.
+    """
     supabase = _get_supabase()
-    document_id = str(uuid.uuid4())
-    supabase.table("knowledge_base").insert(
-        {
-            "id": str(uuid.uuid4()),
-            "document_id": document_id,
-            "property_id": property_id,
-            "title": title,
-            "chunk_index": 0,
-            "content": content,
-            "category": category or "general",
-            "metadata": metadata or {},
-        }
-    ).execute()
-    return document_id, 1
+
+    # Get the main document (category = 'general'), not ai_suggestion fragments
+    result = (
+        supabase.table("knowledge_base")
+        .select("id, document_id, title, content")
+        .eq("property_id", property_id)
+        .eq("category", "general")
+        .limit(1)
+        .execute()
+    )
+
+    if result.data:
+        # Append to existing document
+        existing = result.data[0]
+        existing_content = existing.get("content") or ""
+        new_section = f"\n\n## {title}\n{content}"
+        updated_content = existing_content + new_section
+
+        print(f"[KB] Appending to existing doc {existing['id']}, content length: {len(existing_content)} -> {len(updated_content)}")
+
+        supabase.table("knowledge_base").update({"content": updated_content}).eq(
+            "id", existing["id"]
+        ).execute()
+
+        return existing["document_id"], 1
+    else:
+        print(f"[KB] No existing doc for property {property_id}, creating new")
+        # No existing document, create new one
+        document_id = str(uuid.uuid4())
+        supabase.table("knowledge_base").insert(
+            {
+                "id": str(uuid.uuid4()),
+                "document_id": document_id,
+                "property_id": property_id,
+                "title": title,
+                "chunk_index": 0,
+                "content": content,
+                "category": category or "general",
+                "metadata": metadata or {},
+            }
+        ).execute()
+        return document_id, 1
 
 
 def retrieve_context(property_id: str, query: str) -> str:

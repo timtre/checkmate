@@ -149,6 +149,7 @@ class InsightsResponse(BaseModel):
     total_conversations: int
     total_messages: int
     total_escalations: int
+    conversations_with_escalations: int = 0  # unique conversations that had at least one escalation
     most_asked: list[QuestionInsight]
     worst_answered: list[QuestionInsight]
     escalation_themes: list[EscalationInsight] = []

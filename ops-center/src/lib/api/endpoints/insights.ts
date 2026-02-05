@@ -62,6 +62,7 @@ export function useAllInsights(propertyIds: string[]) {
         total_conversations: 0,
         total_messages: 0,
         total_escalations: 0,
+        conversations_with_escalations: 0,
         most_asked: [],
         worst_answered: [],
         escalation_themes: [],
@@ -72,6 +73,7 @@ export function useAllInsights(propertyIds: string[]) {
           aggregated.total_conversations += result.total_conversations;
           aggregated.total_messages += result.total_messages;
           aggregated.total_escalations += result.total_escalations;
+          aggregated.conversations_with_escalations += result.conversations_with_escalations || 0;
           aggregated.most_asked.push(...result.most_asked);
           aggregated.worst_answered.push(...result.worst_answered);
           aggregated.escalation_themes.push(...result.escalation_themes);
@@ -223,8 +225,9 @@ export interface PerPropertyInsight {
   propertyId: string;
   totalConversations: number;
   totalEscalations: number;
-  frictionRate: number;      // escalations / conversations * 100
-  interventionRate: number;  // same as frictionRate for now
+  conversationsWithEscalations: number;
+  frictionRate: number;      // conversations with escalations / total conversations * 100
+  interventionRate: number;  // same as frictionRate
 }
 
 export function usePerPropertyInsights(propertyIds: string[]) {
@@ -241,14 +244,17 @@ export function usePerPropertyInsights(propertyIds: string[]) {
 
       for (const result of results) {
         if (result) {
+          // Use conversations_with_escalations for accurate intervention rate
+          const conversationsWithEscalations = result.conversations_with_escalations || 0;
           const rate = result.total_conversations > 0
-            ? Math.round((result.total_escalations / result.total_conversations) * 100)
+            ? Math.max(0, Math.min(100, Math.round((conversationsWithEscalations / result.total_conversations) * 100)))
             : 0;
 
           insightsMap.set(result.property_id, {
             propertyId: result.property_id,
             totalConversations: result.total_conversations,
             totalEscalations: result.total_escalations,
+            conversationsWithEscalations,
             frictionRate: rate,
             interventionRate: rate,
           });

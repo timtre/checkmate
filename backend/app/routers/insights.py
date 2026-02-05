@@ -75,6 +75,7 @@ def get_insights(property_id: str, limit: int = 10):
         total_conversations=stats["total_conversations"],
         total_messages=stats["total_messages"],
         total_escalations=stats["total_escalations"],
+        conversations_with_escalations=stats["conversations_with_escalations"],
         most_asked=most_asked,
         worst_answered=worst_answered,
         escalation_themes=escalation_themes,
