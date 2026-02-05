@@ -235,3 +235,24 @@ class AggregationStatusResponse(BaseModel):
     status: str
     property_id: str
     progress: Optional[AggregationProgressEvent] = None
+
+
+# --- Category Suggestions ---
+
+
+class CategorySuggestion(BaseModel):
+    suggestion_id: str
+    property_id: str
+    suggested_category: str
+    description: str
+    reasoning: str = ""
+    source_escalation_ids: list[str] = []
+    sample_questions: list[str] = []
+    escalation_count: int = 0
+    status: str = "pending"
+    created_at: Optional[datetime] = None
+    reviewed_at: Optional[datetime] = None
+
+
+class CategorySuggestionReviewRequest(BaseModel):
+    status: str  # "approved" or "dismissed"

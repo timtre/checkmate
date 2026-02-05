@@ -111,6 +111,7 @@ Escalation guidelines: set ESCALATE to true ONLY for these priority cases:
 4. dissatisfied: Explicit frustration with AI or guest asks for a human/manager
 5. cannot_answer: Property-specific question not in knowledge base that materially affects the stay
 6. repeated_unanswered: Same substantive question asked multiple times without resolution
+7. other: Situation warrants human attention but does not fit categories above
 
 Do NOT escalate for: greetings, small talk, thanks, questions you can answer, general chat.
 
@@ -125,7 +126,7 @@ Format your response as:
 ANSWER: <your answer>
 CONFIDENCE: <0.0 to 1.0>
 ESCALATE: <true or false>
-ESCALATE_REASON: <none|safety|access_blocked|maintenance_urgent|dissatisfied|cannot_answer|repeated_unanswered>"""
+ESCALATE_REASON: <none|safety|access_blocked|maintenance_urgent|dissatisfied|cannot_answer|repeated_unanswered|other>"""
 
 
 def generate_response(
@@ -274,6 +275,15 @@ def _build_dynamic_prompt(property_id: str, tower_patterns: list[dict] | None = 
             "the gap honestly and escalate to the property manager."
         )
 
+    # Add property-specific prompt rules (approved prompt_update suggestions)
+    prompt_rules = persistence.get_property_prompt_rules(property_id, active_only=True)
+    if prompt_rules:
+        rules_text = "\n".join(f"- {rule['content']}" for rule in prompt_rules)
+        prompt += (
+            "\n\nProperty-specific guidelines:\n"
+            f"{rules_text}"
+        )
+
     return prompt
 
 
@@ -320,6 +330,7 @@ def _parse_response(raw: str) -> tuple[str, float, bool, str]:
             "dissatisfied",
             "cannot_answer",
             "repeated_unanswered",
+            "other",
         }
         if reason_value in valid_reasons:
             escalate_reason = reason_value

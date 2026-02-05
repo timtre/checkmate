@@ -554,3 +554,48 @@ export async function triggerFeaturesJob(propertyId: string): Promise<TowerJobRe
   if (!res.ok) throw new Error(`Features job trigger failed: ${res.status}`);
   return res.json();
 }
+
+// ===== Category Suggestions =====
+
+export interface CategorySuggestion {
+  suggestion_id: string;
+  property_id: string;
+  suggested_category: string;
+  description: string;
+  reasoning: string;
+  source_escalation_ids: string[];
+  sample_questions: string[];
+  escalation_count: number;
+  status: string;
+  created_at: string | null;
+  reviewed_at: string | null;
+}
+
+export async function getCategorySuggestions(
+  propertyId: string,
+  status?: string
+): Promise<CategorySuggestion[]> {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  const res = await fetch(`${BASE_URL}/properties/${propertyId}/category-suggestions${qs}`);
+  if (!res.ok) throw new Error(`Category suggestions fetch failed: ${res.status}`);
+  return res.json();
+}
+
+export async function reviewCategorySuggestion(
+  propertyId: string,
+  suggestionId: string,
+  status: "approved" | "dismissed"
+): Promise<{ suggestion_id: string; status: string }> {
+  const res = await fetch(
+    `${BASE_URL}/properties/${propertyId}/category-suggestions/${suggestionId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    }
+  );
+  if (!res.ok) throw new Error(`Review category suggestion failed: ${res.status}`);
+  return res.json();
+}

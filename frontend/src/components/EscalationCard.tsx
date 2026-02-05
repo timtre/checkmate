@@ -21,6 +21,7 @@ function getReasonColor(reason: string) {
     case "dissatisfied": return "bg-red-100 text-red-800 border-red-200";
     case "cannot_answer": return "bg-blue-100 text-blue-800 border-blue-200";
     case "repeated_unanswered": return "bg-purple-100 text-purple-800 border-purple-200";
+    case "other": return "bg-slate-100 text-slate-800 border-slate-200";
     // Legacy values for existing DB records
     case "low_confidence": return "bg-amber-100 text-amber-800 border-amber-200";
     case "dissatisfaction": return "bg-red-100 text-red-800 border-red-200";

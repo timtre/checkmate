@@ -11,6 +11,7 @@ _REASON_TO_VERDICT = {
     "access_blocked": EvalVerdict.LOW_CONFIDENCE,
     "maintenance_urgent": EvalVerdict.LOW_CONFIDENCE,
     "cannot_answer": EvalVerdict.LOW_CONFIDENCE,
+    "other": EvalVerdict.LOW_CONFIDENCE,
 }
 
 

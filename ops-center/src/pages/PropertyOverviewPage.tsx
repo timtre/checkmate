@@ -17,6 +17,7 @@ import { AggregationPanel } from '@/components/analytics/AggregationPanel';
 import { DocSuggestionCard } from '@/components/dashboard/DocSuggestionCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 import {
   Table,
   TableBody,
@@ -47,6 +48,8 @@ const PropertyOverviewPage = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [faqExpanded, setFaqExpanded] = useState(false);
   const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
+  const [processingSuggestionId, setProcessingSuggestionId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const propertyId = selectedProperty?.id ?? null;
 
@@ -103,20 +106,51 @@ const PropertyOverviewPage = () => {
   const displayedSuggestions = suggestionsExpanded ? pendingSuggestions : pendingSuggestions.slice(0, 2);
 
   // Handlers for suggestions
-  const handleAcceptSuggestion = async (suggestionId: string) => {
-    await updateSuggestion.mutateAsync({
-      propertyId: selectedProperty.id,
-      suggestionId,
-      status: 'approved',
-    });
+  const handleAcceptSuggestion = async (suggestionId: string, isKbAddition: boolean) => {
+    setProcessingSuggestionId(suggestionId);
+    try {
+      await updateSuggestion.mutateAsync({
+        propertyId: selectedProperty.id,
+        suggestionId,
+        status: 'approved',
+      });
+      toast({
+        title: isKbAddition ? 'Added to Knowledge Base' : 'Suggestion approved',
+        description: isKbAddition
+          ? 'The content has been added to the property knowledge base.'
+          : 'The prompt update suggestion has been approved.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to approve suggestion',
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessingSuggestionId(null);
+    }
   };
 
-  const handleDismissSuggestion = (suggestionId: string) => {
-    updateSuggestion.mutate({
-      propertyId: selectedProperty.id,
-      suggestionId,
-      status: 'dismissed',
-    });
+  const handleDismissSuggestion = async (suggestionId: string) => {
+    setProcessingSuggestionId(suggestionId);
+    try {
+      await updateSuggestion.mutateAsync({
+        propertyId: selectedProperty.id,
+        suggestionId,
+        status: 'dismissed',
+      });
+      toast({
+        title: 'Suggestion dismissed',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to dismiss suggestion',
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessingSuggestionId(null);
+    }
   };
 
   if (isLoading) {
@@ -329,8 +363,9 @@ const PropertyOverviewPage = () => {
                   <DocSuggestionCard
                     key={suggestion.id}
                     suggestion={suggestion}
-                    onAccept={() => handleAcceptSuggestion(suggestion.id)}
+                    onAccept={() => handleAcceptSuggestion(suggestion.id, suggestion.suggestionType === 'kb_addition')}
                     onDismiss={() => handleDismissSuggestion(suggestion.id)}
+                    isLoading={processingSuggestionId === suggestion.id}
                   />
                 ))}
               </div>

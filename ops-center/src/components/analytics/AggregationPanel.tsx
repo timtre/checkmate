@@ -53,8 +53,11 @@ export function AggregationPanel({ propertyId, onComplete }: AggregationPanelPro
         setRunning(false);
         // Invalidate queries to refresh data
         queryClient.invalidateQueries({ queryKey: ['insights', propertyId] });
-        queryClient.invalidateQueries({ queryKey: ['suggestions', propertyId] });
-        queryClient.invalidateQueries({ queryKey: ['topQuestions', propertyId] });
+        queryClient.invalidateQueries({ queryKey: ['batch-suggestions', propertyId] });
+        queryClient.invalidateQueries({ queryKey: ['batch-suggestions', 'all'] });
+        queryClient.invalidateQueries({ queryKey: ['top-questions', propertyId] });
+        queryClient.invalidateQueries({ queryKey: ['knowledge-base', propertyId] });
+        queryClient.invalidateQueries({ queryKey: ['property-document', propertyId] });
         onComplete?.();
       },
       (errMsg) => {

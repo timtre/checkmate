@@ -325,6 +325,43 @@ class Persistence:
             "suggestion_id", suggestion_id
         ).execute()
 
+    # --- Property Prompt Rules ---
+
+    def get_property_prompt_rules(self, property_id: str, active_only: bool = True) -> list[dict]:
+        """Get prompt rules for a property."""
+        query = (
+            _get_supabase()
+            .table("property_prompt_rules")
+            .select("*")
+            .eq("property_id", property_id)
+        )
+        if active_only:
+            query = query.eq("active", True)
+        result = query.order("created_at", desc=False).execute()
+        return result.data or []
+
+    def add_property_prompt_rule(
+        self,
+        property_id: str,
+        title: str,
+        content: str,
+        source_suggestion_id: str | None = None,
+    ) -> dict:
+        """Add a new prompt rule for a property."""
+        import uuid
+
+        rule_id = str(uuid.uuid4())
+        data = {
+            "rule_id": rule_id,
+            "property_id": property_id,
+            "title": title,
+            "content": content,
+            "source_suggestion_id": source_suggestion_id,
+            "active": True,
+        }
+        _get_supabase().table("property_prompt_rules").insert(data).execute()
+        return data
+
     def list_properties(self) -> list[dict]:
         """Get distinct property IDs with conversation counts and display names."""
         result = (
@@ -510,7 +547,27 @@ class Persistence:
         sb.table("escalation_insights").delete().eq("property_id", property_id).execute()
         sb.table("batch_suggestions").delete().eq("property_id", property_id).execute()
         sb.table("kb_suggestions").delete().eq("property_id", property_id).execute()
+        sb.table("category_suggestions").delete().eq("property_id", property_id).execute()
         sb.table("guest_tokens").delete().eq("property_id", property_id).execute()
+
+    # --- Category Suggestions ---
+
+    def get_category_suggestions(self, property_id: str, status: str | None = None) -> list[dict]:
+        query = (
+            _get_supabase().table("category_suggestions").select("*").eq("property_id", property_id)
+        )
+        if status:
+            query = query.eq("status", status)
+        result = query.order("created_at", desc=True).execute()
+        return result.data or []
+
+    def update_category_suggestion_status(self, suggestion_id: str, status: str):
+        _get_supabase().table("category_suggestions").update(
+            {
+                "status": status,
+                "reviewed_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).eq("suggestion_id", suggestion_id).execute()
 
 
 persistence = Persistence()

@@ -173,6 +173,26 @@ create index if not exists batch_suggestions_property_idx
 create index if not exists batch_suggestions_status_idx
     on batch_suggestions (property_id, status);
 
+-- Category suggestions (LLM-suggested new categories from "other" escalations)
+create table if not exists category_suggestions (
+    suggestion_id text primary key,
+    property_id text not null,
+    suggested_category text not null,
+    description text not null,
+    reasoning text default '',
+    source_escalation_ids text[] default '{}',
+    sample_questions text[] default '{}',
+    escalation_count integer default 0,
+    status text default 'pending',  -- pending, approved, dismissed
+    created_at timestamptz default now(),
+    reviewed_at timestamptz
+);
+
+create index if not exists category_suggestions_property_idx
+    on category_suggestions (property_id);
+create index if not exists category_suggestions_status_idx
+    on category_suggestions (property_id, status);
+
 -- Aggregation runs (tracks Tower job progress)
 create table if not exists aggregation_runs (
     run_id text primary key,
@@ -192,6 +212,22 @@ create index if not exists aggregation_runs_property_idx
     on aggregation_runs (property_id);
 create index if not exists aggregation_runs_status_idx
     on aggregation_runs (property_id, status);
+
+-- Property prompt rules (approved prompt_update suggestions)
+create table if not exists property_prompt_rules (
+    rule_id text primary key,
+    property_id text not null,
+    title text not null,
+    content text not null,
+    source_suggestion_id text,
+    active boolean default true,
+    created_at timestamptz default now()
+);
+
+create index if not exists property_prompt_rules_property_idx
+    on property_prompt_rules (property_id);
+create index if not exists property_prompt_rules_active_idx
+    on property_prompt_rules (property_id, active);
 
 -- RPC function for similarity search with property filtering
 create or replace function match_knowledge_base(

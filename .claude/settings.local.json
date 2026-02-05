@@ -23,7 +23,8 @@
       "Bash(npm run lint)",
       "WebFetch(domain:tower.dev)",
       "mcp__supabase__search_docs",
-      "mcp__supabase__list_tables"
+      "mcp__supabase__list_tables",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

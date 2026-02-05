@@ -312,6 +312,7 @@ export function mapBatchSuggestion(item: BatchSuggestion): DocSuggestion {
   return {
     id: item.suggestion_id,
     propertyId: item.property_id,
+    suggestionType: (item.suggestion_type === 'kb_addition' ? 'kb_addition' : 'prompt_update') as 'kb_addition' | 'prompt_update',
     title: item.title,
     content: item.content,
     evidence: item.source_patterns,

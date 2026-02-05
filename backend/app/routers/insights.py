@@ -12,6 +12,8 @@ from app.models.schemas import (
     AggregationTriggerResponse,
     BatchSuggestion,
     BatchSuggestionUpdateRequest,
+    CategorySuggestion,
+    CategorySuggestionReviewRequest,
     EscalationInsight,
     InsightsResponse,
     QuestionInsight,
@@ -89,19 +91,42 @@ def get_batch_suggestions(property_id: str, status: str | None = None):
 def update_batch_suggestion(
     property_id: str, suggestion_id: str, body: BatchSuggestionUpdateRequest
 ):
-    """Update a batch suggestion's status. If approved, also ingest to KB."""
-    if body.status == "approved":
-        # Get suggestion content to add to knowledge base
-        suggestions = persistence.get_batch_suggestions(property_id)
-        suggestion = next((s for s in suggestions if s["suggestion_id"] == suggestion_id), None)
+    """Update a batch suggestion's status. If approved and type is kb_addition, also ingest to KB."""
+    # First, get the suggestion to validate it exists
+    suggestions = persistence.get_batch_suggestions(property_id)
+    suggestion = next((s for s in suggestions if s["suggestion_id"] == suggestion_id), None)
 
-        if suggestion and suggestion.get("content"):
+    if not suggestion:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+
+    if body.status == "approved":
+        suggestion_type = suggestion.get("suggestion_type")
+
+        if suggestion_type == "kb_addition":
+            # Add to knowledge base
+            if not suggestion.get("content"):
+                raise HTTPException(
+                    status_code=400, detail="Cannot approve KB suggestion with empty content"
+                )
             append_document(
                 property_id=property_id,
                 title=suggestion["title"],
                 content=suggestion["content"],
                 category="ai_suggestion",
                 metadata={"source": "batch_suggestion", "suggestion_id": suggestion_id},
+            )
+
+        elif suggestion_type == "prompt_update":
+            # Add as a property-specific prompt rule
+            if not suggestion.get("content"):
+                raise HTTPException(
+                    status_code=400, detail="Cannot approve prompt update with empty content"
+                )
+            persistence.add_property_prompt_rule(
+                property_id=property_id,
+                title=suggestion["title"],
+                content=suggestion["content"],
+                source_suggestion_id=suggestion_id,
             )
 
     persistence.update_batch_suggestion_status(suggestion_id, body.status)
@@ -192,3 +217,22 @@ def get_aggregation_status(property_id: str):
         overall_percent=run.get("overall_percent", 0),
     )
     return AggregationStatusResponse(status=status, property_id=property_id, progress=progress)
+
+
+@router.get("/category-suggestions", response_model=list[CategorySuggestion])
+def get_category_suggestions(property_id: str, status: str | None = None):
+    """Get LLM-suggested new escalation categories from 'other' escalations."""
+    return persistence.get_category_suggestions(property_id, status=status)
+
+
+@router.patch("/category-suggestions/{suggestion_id}")
+def update_category_suggestion(
+    property_id: str, suggestion_id: str, body: CategorySuggestionReviewRequest
+):
+    """Review a category suggestion (approve or dismiss)."""
+    if body.status not in ("approved", "dismissed"):
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=400, detail="Status must be 'approved' or 'dismissed'")
+    persistence.update_category_suggestion_status(suggestion_id, body.status)
+    return {"suggestion_id": suggestion_id, "status": body.status}
