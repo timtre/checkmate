@@ -5,6 +5,7 @@ import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
 import { usePropertyScope } from '@/contexts/PropertyScopeContext';
 import { useAllEscalations } from '@/lib/api';
 import { CreatePropertySheet } from '@/components/CreatePropertySheet';
+import '@/sidebar-animations.css';
 
 interface NavItemProps {
   href: string;
@@ -85,6 +86,8 @@ export function AppSidebar() {
   } = usePropertyScope();
 
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
+  const [showTagline, setShowTagline] = useState(false);
+  const [fadeOut, setFadeOut] = useState(false);
 
   // Fetch escalations to get urgent count
   const propertyIds = properties.map(p => p.id);
@@ -114,10 +117,26 @@ export function AppSidebar() {
   };
 
   return (
+    <>
     <aside className="fixed left-0 top-0 h-screen w-56 bg-sidebar flex flex-col border-r border-sidebar-border">
       {/* Logo */}
-      <div className="h-14 flex items-center px-4 border-b border-sidebar-border">
-        <span className="font-semibold text-foreground">CheckMate</span>
+      <div className="border-b border-sidebar-border">
+        <div
+          className="h-14 flex items-center px-4 cursor-pointer select-none"
+          onClick={() => {
+            if (!showTagline) {
+              setShowTagline(true);
+              setFadeOut(false);
+              setTimeout(() => setFadeOut(true), 2500);
+              setTimeout(() => {
+                setShowTagline(false);
+                setFadeOut(false);
+              }, 3000);
+            }
+          }}
+        >
+          <span className="font-semibold text-foreground">CheckMate</span>
+        </div>
       </div>
 
       {/* Navigation */}
@@ -180,6 +199,18 @@ export function AppSidebar() {
         open={createSheetOpen}
         onOpenChange={setCreateSheetOpen}
       />
+
     </aside>
+
+    {showTagline && (
+      <div className={cn('tagline-overlay', fadeOut && 'fade-out')}>
+        <div className="tagline-content">
+          <span className="tagline-word tagline-word-1">checkin.</span>
+          <span className="tagline-word tagline-word-2">checkout.</span>
+          <span className="tagline-word tagline-word-3">checkmate.</span>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
