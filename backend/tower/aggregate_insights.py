@@ -316,19 +316,21 @@ def _phase3_llm_suggestions(supabase, property_id, run_id, aggregated, esc_group
 
         if kb_content:
             prompt_parts.append(
-                "\nExisting knowledge base content (DO NOT suggest adding topics already covered here):\n"
-                + kb_content
+                "\nExisting knowledge base content (for reference):\n" + kb_content
             )
 
         prompt_parts.append("""
-IMPORTANT: Do NOT suggest adding content that is already covered by the existing knowledge base entries listed above. Only suggest genuinely missing information.
-
 Based on this data, generate specific, actionable suggestions. For each suggestion provide:
 - type: either "kb_addition" (add content to the knowledge base) or "prompt_update" (adjust the AI system prompt)
 - title: short title (max 10 words)
 - content: the specific text to add or change
 - reasoning: why this would help (1 sentence)
 - source_patterns: list of the question patterns that motivated this suggestion
+
+GUIDELINES FOR CHOOSING SUGGESTION TYPE:
+- Use "kb_addition" when guests ask questions that require SPECIFIC FACTUAL ANSWERS (codes, times, locations, instructions, policies) that are missing or incomplete in the KB - even if a related topic exists, suggest adding the specific missing details
+- Use "prompt_update" ONLY for behavioral/tone issues or when the AI needs guidance on HOW to respond (not WHAT information to provide)
+- When in doubt, prefer "kb_addition" - missing factual content is the most common cause of low confidence answers
 
 Respond with a JSON array of suggestions (max 5). Example:
 [{"type": "kb_addition", "title": "Add parking instructions", "content": "Parking is available in the garage on level 2. Use code 4521 to enter.", "reasoning": "Guests frequently ask about parking with low confidence answers.", "source_patterns": ["where do i park", "parking instructions"]}]
