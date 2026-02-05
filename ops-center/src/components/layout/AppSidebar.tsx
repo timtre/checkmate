@@ -101,7 +101,6 @@ export function AppSidebar() {
   // Determine active nav item - Property view
   const isPropertyOverview = location.pathname === '/property';
   const isKnowledgeBase = location.pathname === '/property/knowledge';
-  const isPropertyAnalytics = location.pathname === '/property/analytics';
 
   const handlePropertySelect = (property: typeof properties[0]) => {
     selectProperty(property);
@@ -137,7 +136,6 @@ export function AppSidebar() {
             {/* Property-specific nav */}
             <NavItem href="/property" label="Overview" active={isPropertyOverview} />
             <NavItem href="/property/knowledge" label="Knowledge Base" active={isKnowledgeBase} />
-            <NavItem href="/property/analytics" label="Analytics" active={isPropertyAnalytics} />
           </>
         ) : (
           /* All Properties View Navigation */

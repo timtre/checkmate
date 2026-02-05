@@ -109,14 +109,14 @@ export const PropertyHealthTable = () => {
         sentimentLabel = 'At Risk';
       }
 
-      // Calculate rates from insights
-      const totalConversations = insights?.total_conversations || 1;
+      // Calculate rates from insights (clamped to 0-100%)
+      const totalConversations = insights?.total_conversations || 0;
       const totalEscalations = propertyEscalations.length;
       const humanInterventionRate = totalConversations > 0
-        ? Math.round((totalEscalations / totalConversations) * 100)
-        : 0;
+        ? Math.min(100, Math.round((totalEscalations / totalConversations) * 100))
+        : (totalEscalations > 0 ? 100 : 0);
       const autoReplyRate = 100 - humanInterventionRate;
-      const frictionRate = Math.min(humanInterventionRate, 100);
+      const frictionRate = humanInterventionRate;
 
       return {
         property,

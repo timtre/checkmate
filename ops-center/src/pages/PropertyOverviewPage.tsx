@@ -2,49 +2,122 @@ import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { usePropertyScope } from '@/contexts/PropertyScopeContext';
-import { useEscalations, useBatchSuggestions } from '@/lib/api';
+import {
+  useEscalations,
+  useBatchSuggestions,
+  useInsights,
+  useTopQuestions,
+  useUpdateBatchSuggestion,
+  deriveIntent,
+  type TopIntentItem,
+} from '@/lib/api';
+import { getIntentLabel, getIntentIcon, type Intent } from '@/lib/mockData';
 import { KpiCard } from '@/components/dashboard/KpiCard';
+import { AggregationPanel } from '@/components/analytics/AggregationPanel';
+import { DocSuggestionCard } from '@/components/dashboard/DocSuggestionCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { PropertySettingsSheet } from '@/components/settings/PropertySettingsSheet';
 import {
-  Building2,
   Users,
   AlertTriangle,
   Bot,
   FileText,
-  BarChart3,
   MapPin,
   Home,
   ArrowRight,
   Settings,
   Loader2,
   ImageIcon,
+  Lightbulb,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 const PropertyOverviewPage = () => {
   const { selectedProperty } = usePropertyScope();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [faqExpanded, setFaqExpanded] = useState(false);
+  const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
+
+  const propertyId = selectedProperty?.id ?? null;
+
+  // Fetch data from API - hooks must be called unconditionally
+  const { data: propertyEscalations = [], isLoading: escalationsLoading } = useEscalations(propertyId);
+  const { data: propertySuggestions = [], isLoading: suggestionsLoading } = useBatchSuggestions(propertyId);
+  const { data: insights, isLoading: insightsLoading } = useInsights(propertyId);
+  const { data: topQuestions = [], isLoading: questionsLoading } = useTopQuestions(propertyId);
+  const updateSuggestion = useUpdateBatchSuggestion();
 
   // Redirect to all properties view if no property selected
   if (!selectedProperty) {
     return <Navigate to="/" replace />;
   }
 
-  // Fetch data from API
-  const { data: propertyEscalations = [], isLoading: escalationsLoading } = useEscalations(selectedProperty.id);
-  const { data: propertySuggestions = [], isLoading: suggestionsLoading } = useBatchSuggestions(selectedProperty.id);
-
-  const isLoading = escalationsLoading || suggestionsLoading;
+  const isLoading = escalationsLoading || suggestionsLoading || insightsLoading || questionsLoading;
 
   // Filter data
   const openEscalations = propertyEscalations.filter(e => e.status === 'open' || e.status === 'waiting_on_pm');
-  const resolvedCount = propertyEscalations.filter(e => e.status === 'resolved' || e.status === 'closed').length;
-  const resolvedByAI = propertyEscalations.length > 0
-    ? Math.round((resolvedCount / propertyEscalations.length) * 100)
-    : 100;
-
   const pendingSuggestions = propertySuggestions.filter(s => s.status === 'new');
+
+  // Calculate resolution stats from question patterns
+  const totalQuestions = topQuestions.reduce((sum, q) => sum + q.count, 0);
+  const totalResolved = topQuestions.reduce((sum, q) => sum + q.resolved, 0);
+  const totalEscalations = propertyEscalations.length;
+  const resolvedByAI = totalQuestions > 0
+    ? Math.round((totalResolved / totalQuestions) * 100)
+    : 0;
+  const neededHuman = totalQuestions > 0 ? 100 - resolvedByAI : 0;
+
+  // Calculate top intents from escalations
+  const intentCounts = new Map<Intent, number>();
+  for (const esc of propertyEscalations) {
+    const guestMessage = esc.timeline.find(t => t.type === 'guest_message')?.content || '';
+    const intent = deriveIntent(guestMessage);
+    intentCounts.set(intent, (intentCounts.get(intent) || 0) + 1);
+  }
+
+  const topIntents: TopIntentItem[] = Array.from(intentCounts.entries())
+    .map(([intent, count]) => ({
+      intent,
+      count,
+      percentage: propertyEscalations.length > 0
+        ? Math.round((count / propertyEscalations.length) * 100)
+        : 0,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  // FAQ table data (show 3 by default)
+  const displayedQuestions = faqExpanded ? topQuestions : topQuestions.slice(0, 3);
+
+  // Suggestions data (show 2 by default)
+  const displayedSuggestions = suggestionsExpanded ? pendingSuggestions : pendingSuggestions.slice(0, 2);
+
+  // Handlers for suggestions
+  const handleAcceptSuggestion = async (suggestionId: string) => {
+    await updateSuggestion.mutateAsync({
+      propertyId: selectedProperty.id,
+      suggestionId,
+      status: 'approved',
+    });
+  };
+
+  const handleDismissSuggestion = (suggestionId: string) => {
+    updateSuggestion.mutate({
+      propertyId: selectedProperty.id,
+      suggestionId,
+      status: 'dismissed',
+    });
+  };
 
   if (isLoading) {
     return (
@@ -112,9 +185,9 @@ const PropertyOverviewPage = () => {
             icon={Home}
           />
           <KpiCard
-            title="Active Stays"
-            value={propertyEscalations.length}
-            subtitle="Conversations"
+            title="Questions"
+            value={totalQuestions}
+            subtitle="This month"
             icon={Users}
           />
           <KpiCard
@@ -129,69 +202,18 @@ const PropertyOverviewPage = () => {
             value={`${resolvedByAI}%`}
             subtitle="This month"
             icon={Bot}
-            variant="success"
           />
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="hover:border-primary/50 transition-colors">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <FileText className="w-5 h-5 text-primary" />
-                Knowledge Base
-              </CardTitle>
-              <CardDescription>
-                Configure check-in instructions, Wi-Fi, and documentation
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {pendingSuggestions.length > 0 && (
-                <div className="mb-4 p-3 bg-high-muted/50 rounded-lg border border-high/20">
-                  <p className="text-sm text-high font-medium">
-                    {pendingSuggestions.length} documentation improvement{pendingSuggestions.length > 1 ? 's' : ''} suggested
-                  </p>
-                </div>
-              )}
-              <Link to="/property/knowledge">
-                <Button className="w-full gap-2">
-                  Edit Knowledge Base
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:border-primary/50 transition-colors">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <BarChart3 className="w-5 h-5 text-primary" />
-                Property Analytics
-              </CardTitle>
-              <CardDescription>
-                Deep dive into this property's performance and trends
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Link to="/property/analytics">
-                <Button variant="secondary" className="w-full gap-2">
-                  View Analytics
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Recent escalations for this property */}
+        {/* Open Issues Section */}
         {openEscalations.length > 0 && (
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Open Issues at This Property</CardTitle>
+                <CardTitle className="text-lg">Open Issues</CardTitle>
                 <Link to="/escalations">
                   <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground">
-                    View in Escalations <ArrowRight className="w-4 h-4" />
+                    View all <ArrowRight className="w-4 h-4" />
                   </Button>
                 </Link>
               </div>
@@ -221,6 +243,194 @@ const PropertyOverviewPage = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Analytics Charts + Run Analysis */}
+        <div className="space-y-6">
+          {/* Charts row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Top Intents */}
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h3 className="font-semibold text-foreground mb-6">Issue Types</h3>
+              {topIntents.length > 0 ? (
+                <div className="space-y-4">
+                  {topIntents.map((item, index) => (
+                    <div key={item.intent} className="flex items-center gap-4">
+                      <span className="w-6 text-center text-lg">{getIntentIcon(item.intent)}</span>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="text-foreground font-medium">{getIntentLabel(item.intent)}</span>
+                          <span className="text-muted-foreground">{item.count} ({item.percentage}%)</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${item.percentage}%`,
+                              backgroundColor: index === 0 ? 'hsl(var(--critical))' : index === 1 ? 'hsl(var(--high))' : 'hsl(var(--primary))'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No escalation data yet</p>
+              )}
+            </div>
+
+            {/* Resolution Performance */}
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h3 className="font-semibold text-foreground mb-6">Resolution Performance</h3>
+              <div className="grid grid-cols-2 gap-6">
+                <div className={`text-center p-4 rounded-xl ${resolvedByAI >= 70 ? 'bg-success-muted' : resolvedByAI >= 50 ? 'bg-high-muted' : 'bg-critical-muted'}`}>
+                  <p className="text-4xl font-bold mb-1 text-foreground">{resolvedByAI}%</p>
+                  <p className="text-sm text-muted-foreground">Resolved by AI</p>
+                </div>
+                <div className={`text-center p-4 rounded-xl ${neededHuman <= 30 ? 'bg-success-muted' : neededHuman <= 50 ? 'bg-high-muted' : 'bg-critical-muted'}`}>
+                  <p className="text-4xl font-bold mb-1 text-foreground">{neededHuman}%</p>
+                  <p className="text-sm text-muted-foreground">Needed Human</p>
+                </div>
+                <div className="text-center p-4 bg-muted rounded-xl">
+                  <p className="text-4xl font-bold text-foreground mb-1">{totalQuestions}</p>
+                  <p className="text-sm text-muted-foreground">Questions</p>
+                </div>
+                <div className="text-center p-4 bg-muted rounded-xl">
+                  <p className="text-4xl font-bold text-foreground mb-1">{totalEscalations}</p>
+                  <p className="text-sm text-muted-foreground">Escalations</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Aggregation Panel */}
+          <AggregationPanel propertyId={selectedProperty.id} />
+        </div>
+
+        {/* AI Suggestions Section */}
+        {pendingSuggestions.length > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Lightbulb className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">AI Suggestions</CardTitle>
+                  <CardDescription>
+                    Documentation improvements based on guest conversations
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {displayedSuggestions.map((suggestion) => (
+                  <DocSuggestionCard
+                    key={suggestion.id}
+                    suggestion={suggestion}
+                    onAccept={() => handleAcceptSuggestion(suggestion.id)}
+                    onDismiss={() => handleDismissSuggestion(suggestion.id)}
+                  />
+                ))}
+              </div>
+              {pendingSuggestions.length > 2 && (
+                <div className="mt-4 flex justify-center">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSuggestionsExpanded(!suggestionsExpanded)}
+                    className="gap-2"
+                  >
+                    {suggestionsExpanded ? (
+                      <>Show less <ChevronUp className="w-4 h-4" /></>
+                    ) : (
+                      <>Show more ({pendingSuggestions.length - 2} more) <ChevronDown className="w-4 h-4" /></>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* FAQ Table */}
+        <div className="bg-card rounded-xl border border-border p-6">
+          <h3 className="font-semibold text-foreground mb-4">Frequently Asked Questions</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Most common guest questions at {selectedProperty.name}
+          </p>
+          {topQuestions.length > 0 ? (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Question</TableHead>
+                    <TableHead className="w-24 text-right">Asked</TableHead>
+                    <TableHead className="w-24 text-right">Resolved</TableHead>
+                    <TableHead className="w-32 text-right">Resolution Rate</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayedQuestions.map((item) => {
+                    const rate = item.count > 0 ? Math.round((item.resolved / item.count) * 100) : 0;
+                    return (
+                      <TableRow key={item.question}>
+                        <TableCell className="font-medium">{item.question}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{item.count}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{item.resolved}</TableCell>
+                        <TableCell className="text-right">
+                          <span className={rate >= 90 ? 'text-success' : rate >= 70 ? 'text-high' : 'text-critical'}>
+                            {rate}%
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              {topQuestions.length > 3 && (
+                <div className="mt-4 flex justify-center">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFaqExpanded(!faqExpanded)}
+                    className="gap-2"
+                  >
+                    {faqExpanded ? (
+                      <>Show less <ChevronUp className="w-4 h-4" /></>
+                    ) : (
+                      <>Show more ({topQuestions.length - 3} more) <ChevronDown className="w-4 h-4" /></>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">No question patterns recorded yet. Click "Run Analysis" above to generate insights from your conversations.</p>
+          )}
+        </div>
+
+        {/* Knowledge Base Link Card */}
+        <Card className="hover:border-primary/50 transition-colors">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FileText className="w-5 h-5 text-primary" />
+              Knowledge Base
+            </CardTitle>
+            <CardDescription>
+              Configure check-in instructions, Wi-Fi, and property documentation
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link to="/property/knowledge">
+              <Button className="gap-2">
+                Edit Documentation
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
 
       <PropertySettingsSheet

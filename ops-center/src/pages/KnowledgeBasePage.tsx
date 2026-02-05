@@ -7,12 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Building2, Loader2 } from 'lucide-react';
 import { MarkdownEditor } from '@/components/knowledge/MarkdownEditor';
-import { DocSuggestionCard } from '@/components/dashboard/DocSuggestionCard';
 import {
   usePropertyDocument,
   useIngestDocument,
-  useBatchSuggestions,
-  useUpdateBatchSuggestion,
 } from '@/lib/api';
 
 const KnowledgeBasePage = () => {
@@ -26,8 +23,6 @@ const KnowledgeBasePage = () => {
   const propertyId = selectedProperty?.id ?? null;
   const { data: existingDocument, isLoading: isLoadingDocument } = usePropertyDocument(propertyId);
   const ingestMutation = useIngestDocument();
-  const { data: suggestions = [], isLoading: suggestionsLoading } = useBatchSuggestions(propertyId);
-  const updateSuggestion = useUpdateBatchSuggestion();
 
   // Load existing document content when available
   useEffect(() => {
@@ -60,31 +55,6 @@ const KnowledgeBasePage = () => {
     } catch {
       setFeedback({ type: 'error', message: 'Failed to save document.' });
     }
-  };
-
-  const handleAccept = async (suggestionId: string) => {
-    if (!propertyId) return;
-
-    setFeedback(null);
-    try {
-      await updateSuggestion.mutateAsync({
-        propertyId,
-        suggestionId,
-        status: 'approved',
-      });
-      setFeedback({ type: 'success', message: 'Suggestion accepted and added to knowledge base.' });
-    } catch {
-      setFeedback({ type: 'error', message: 'Failed to accept suggestion.' });
-    }
-  };
-
-  const handleDismiss = (suggestionId: string) => {
-    if (!propertyId) return;
-    updateSuggestion.mutate({
-      propertyId,
-      suggestionId,
-      status: 'dismissed',
-    });
   };
 
   // If accessed directly without property selected, prompt to select property
@@ -226,40 +196,6 @@ const KnowledgeBasePage = () => {
               </p>
             </div>
           </div>
-        </section>
-
-        {/* Suggested Improvements */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-medium text-foreground">Suggested Improvements</h2>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-              {suggestions.filter((s) => s.status === 'new').length} pending
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground mb-4">
-            AI-identified documentation gaps based on guest conversations
-          </p>
-          {suggestionsLoading ? (
-            <div className="flex items-center justify-center py-8 border border-dashed border-border rounded-lg">
-              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">Loading suggestions...</span>
-            </div>
-          ) : suggestions.length > 0 ? (
-            <div className="space-y-3">
-              {suggestions.map((suggestion) => (
-                <DocSuggestionCard
-                  key={suggestion.id}
-                  suggestion={suggestion}
-                  onAccept={() => handleAccept(suggestion.id)}
-                  onDismiss={() => handleDismiss(suggestion.id)}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm py-8 text-center border border-dashed border-border rounded-lg">
-              No documentation improvements suggested yet
-            </p>
-          )}
         </section>
 
         {/* Save */}

@@ -9,7 +9,6 @@ import InboxPage from "./pages/InboxPage";
 import EscalationDetailPage from "./pages/EscalationDetailPage";
 import KnowledgeBasePage from "./pages/KnowledgeBasePage";
 import PropertyOverviewPage from "./pages/PropertyOverviewPage";
-import PropertyAnalyticsPage from "./pages/PropertyAnalyticsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,7 +29,6 @@ const App = () => (
             {/* Property view routes */}
             <Route path="/property" element={<PropertyOverviewPage />} />
             <Route path="/property/knowledge" element={<KnowledgeBasePage />} />
-            <Route path="/property/analytics" element={<PropertyAnalyticsPage />} />
             
             {/* Legacy route redirect */}
             <Route path="/inbox" element={<InboxPage />} />
